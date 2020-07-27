@@ -1,0 +1,430 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ template "nifi.fullname" . }}
+  labels:
+    app: {{ include "nifi.name" . | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service | quote }}
+spec:
+  podManagementPolicy: Parallel
+  serviceName: {{ template "nifi.fullname" . }}-headless
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "nifi.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      annotations:
+        security.alpha.kubernetes.io/sysctls: net.ipv4.ip_local_port_range=10000 65000
+      labels:
+        app: {{ include "nifi.name" . | quote }}
+        chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+        release: {{ .Release.Name | quote }}
+        heritage: {{ .Release.Service | quote }}
+    spec:
+      serviceAccountName: {{ template "nifi.fullname" . }}
+      terminationGracePeriodSeconds: 300
+{{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+{{- end }}
+{{- if .Values.securityContext }}
+      securityContext:
+{{ toYaml .Values.securityContext | indent 8 }}
+{{- end }}
+      initContainers:
+      - name: zookeeper
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          # Checking if zookeeper service is up
+          echo Trying to contact {{ template "zookeeper.server" . }} {{ .Values.zookeeper.port }}
+          until nc -vzw 1 {{ template "zookeeper.server" . }} {{ .Values.zookeeper.port }}; do
+            echo "waiting for zookeeper..."
+            sleep 2
+          done
+{{- if .Values.ca.enabled }}
+      - name: cert
+        imagePullPolicy: {{ .Values.ca.image.pullPolicy | quote }}
+        image: "{{ .Values.ca.image.repository }}:{{ .Values.ca.image.tag }}"
+        command:
+        - bash
+        - -c
+        - |
+          CA_ADDRESS="{{ template "ca.server" . }}:{{ .Values.ca.port }}"
+          until echo "" | timeout -t 2 openssl s_client -connect "${CA_ADDRESS}"; do
+            # Checking if ca server using nifi-toolkit is up
+            echo "Waiting for CA to be avaiable at ${CA_ADDRESS}"
+            sleep 2
+          done;
+          cd /data/config-data
+          rm -rf certs
+          mkdir certs
+          cd certs
+          # Generate certificate for server with webProxyHost or service name as alternate names to access nifi web ui
+          ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh client \
+            -c "{{ template "ca.server" . }}" \
+            -t {{ .Values.ca.token }} \
+{{- if .Values.nifi_properties.webProxyHost }}
+            --subjectAlternativeNames {{ .Values.nifi_properties.webProxyHost }} \
+{{- else }}
+            --subjectAlternativeNames {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc \
+{{- end }}
+            -D "CN=$(hostname -f), OU=NIFI" \
+            -p {{ .Values.ca.port }}
+
+          # Generate client certificate for browser with webProxyHost or service name as alternate names to access nifi web ui
+          mkdir -p /data/config-data/certs/admin
+          cd /data/config-data/certs/admin
+
+          ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh client \
+            -c "{{ template "ca.server" . }}" \
+            -t {{ .Values.ca.token }} \
+{{- if .Values.nifi_properties.webProxyHost }}
+            --subjectAlternativeNames {{ .Values.nifi_properties.webProxyHost }} \
+{{- else }}
+            --subjectAlternativeNames {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc \
+{{- end }}
+            -p {{ .Values.ca.port }} \
+            -D "CN={{ .Values.ca.admin.cn }}, OU=NIFI" \
+            -T PKCS12
+
+          export PASS=$(jq -r .keyStorePassword config.json)
+
+          openssl pkcs12 -in "keystore.pkcs12" -out "key.pem" -nocerts -nodes -password "env:PASS"
+          openssl pkcs12 -in "keystore.pkcs12" -out "crt.pem" -clcerts -nokeys -password "env:PASS"
+        volumeMounts:
+          - name: "config-data"
+            mountPath: /data/config-data
+{{- end }}
+      containers:
+      - name: server
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        command:
+        - bash
+        - -ce
+        - |
+          set -ex
+          update_property () {
+            target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
+            echo "updating ${1} in ${target_file}"
+            if egrep "^${1}=" ${target_file} &> /dev/null; then
+              sed -i -e "s|^$1=.*$|$1=$2|"  ${target_file}
+            else
+              echo ${1}=${2} >> ${target_file}
+            fi
+          }
+
+          mkdir -p ${NIFI_HOME}/config-data/conf
+          NIFI_HOST=$(hostname -f)
+          # Create authorizers.xml
+          cat "${NIFI_HOME}/conf/authorizers.temp" > "${NIFI_HOME}/conf/authorizers.xml"
+          # Create and update nifi.properties
+          cat "${NIFI_HOME}/conf/nifi.temp" > "${NIFI_HOME}/conf/nifi.properties"
+          update_property nifi.remote.input.host ${NIFI_HOST}
+          update_property nifi.cluster.node.address ${NIFI_HOST}
+          update_property nifi.cluster.flow.election.max.candidates {{ .Values.replicaCount }}
+{{- if .Values.nifi_properties.secured }}
+          # Update nifi.properties for security properties
+          update_property nifi.web.https.host ${NIFI_HOST}
+          update_property nifi.security.keystore   ${NIFI_HOME}/config-data/certs/keystore.jks
+          update_property nifi.security.keystorePasswd     $(jq -r .keyStorePassword ${NIFI_HOME}/config-data/certs/config.json)
+          update_property nifi.security.keyPasswd          $(jq -r .keyPassword ${NIFI_HOME}/config-data/certs/config.json)
+          update_property nifi.security.truststore   ${NIFI_HOME}/config-data/certs/truststore.jks
+          update_property nifi.security.truststorePasswd   $(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/config.json)
+
+          base_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0)
+          if [[ `hostname` != "$base_host" ]]; then
+            # Download kubectl, this can be later backed into the docker image
+            curl -Lo ${NIFI_HOME}/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+            chmod +x ${NIFI_HOME}/bin/kubectl
+            # Download authorizations.xml from pod-0, it helps to get authorizations.xml required for adding up new nodes
+            ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:/opt/nifi/nifi-current/config-data/conf/authorizations.xml /opt/nifi/nifi-current/config-data/conf/authorizations.xml
+          fi
+{{- if .Values.nifi_properties.webProxyHost }}
+          # Update nifi.properties for web ui proxy hostname
+          update_property nifi.web.proxy.host {{ .Values.nifi_properties.webProxyHost }}
+{{- else }}
+          update_property nifi.web.proxy.host {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
+{{- end }}
+
+{{- else }}
+          update_property nifi.web.http.host ${NIFI_HOST}
+{{- end }}
+          exec bin/nifi.sh run
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        ports:
+{{- if .Values.nifi_properties.secured }}
+        # Setup https port as container port when cluster is secured
+        - containerPort: {{ .Values.nifi_properties.https_port }}
+          name: https
+          protocol: TCP
+{{- else }}
+        # Setup http port as container port when cluster is unsecured
+        - containerPort: {{ .Values.nifi_properties.http_port }}
+          name: http
+          protocol: TCP
+{{- end }}
+        - containerPort: {{ .Values.nifi_properties.cluster_port }}
+          name: cluster
+          protocol: TCP
+        env:
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - bash
+              - -c
+              - |
+                set -ex
+                # Setup preStop actions for cleaning up the pods when descaling
+                toolKitCli="${NIFI_TOOLKIT_HOME}/bin/cli.sh"
+{{- if .Values.nifi_properties.secured }}
+                webProtocol=https
+                webPort={{ .Values.nifi_properties.https_port }}
+                trustStore="${NIFI_HOME}/config-data/certs/admin/truststore.jks"
+                trustStorePassword=$(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
+                trustStoreType=$(jq -r .trustStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
+                keyStore="${NIFI_HOME}/config-data/certs/admin/keystore.pkcs12"
+                keyStorePassword=$(jq -r .keyStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
+                keyStoreType=$(jq -r .keyStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
+                secureOptions="-ts $trustStore -tsp $trustStorePassword -tst $trustStoreType -ks $keyStore -ksp $keyStorePassword -kst $keyStoreType"
+{{- else }}
+                webProtocol=http
+                webPort={{ .Values.nifi_properties.http_port }}
+                secureOptions=""
+{{- end }}
+                base_url_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
+                cluster_info=$($toolKitCli nifi get-nodes -u $webProtocol://$base_url_host:$webPort -ot json $secureOptions)
+                if [[ "$base_url_host" != `hostname -f` ]]; then
+                  node_id=$(echo $cluster_info | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .nodeId")
+                  echo $base_url_host
+                  echo $node_id
+                  echo "Disconnecting the node...."
+                  # Disconnect the node from cluster
+                  $toolKitCli nifi disconnect-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                  echo
+                  sleep 2
+                  echo "Offloading the node...."
+                  # Offload the disconnected node
+                  $toolKitCli nifi offload-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                  echo
+                  time_to_sleep=5
+                  number_of_checks=50
+                  checked=0
+                  node_status=$($toolKitCli nifi get-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort -ot json $secureOptions | jq -r '.node.status')
+                  # Lets check whether node has been offloaded or not
+                  while [[ "$node_status" != "OFFLOADED" ]]; do
+                    (( checked++ ))
+                    sleep $time_to_sleep
+                    node_status=$($toolKitCli nifi get-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort -ot json $secureOptions | jq -r '.node.status')
+                    if [[ $checked > $number_of_checks ]]; then
+                      break
+                    fi
+                  done
+                  if [[ "$node_status" == "OFFLOADING" ]]; then
+                    echo "Disconnecting because offloading did not finish in stipulated time...."
+                    # Disconnect the node if still offloading
+                    $toolKitCli nifi disconnect-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                    echo
+                    sleep 2
+                  fi
+                  echo "Deleting...."
+                  # Delete the disconnected node
+                  $toolKitCli nifi delete-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                  echo
+                  sleep 10
+                fi
+                $NIFI_HOME/bin/nifi.sh stop
+{{- if .Values.postStart }}
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", {{ .Values.postStart | quote }}]
+{{- end }}
+        readinessProbe:
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          exec:
+            command:
+            - bash
+            - -c
+            - |
+              # Setting up the readiness probe
+{{- if .Values.nifi_properties.secured }}
+              curl -kv \
+                --cert ${NIFI_HOME}/config-data/certs/admin/crt.pem --cert-type PEM \
+                --key ${NIFI_HOME}/config-data/certs/admin/key.pem --key-type PEM \
+                https://$(hostname -f):{{ .Values.nifi_properties.https_port }}/nifi-api/controller/cluster > /tmp/cluster.state
+{{- else }}
+              curl -kv \
+                http://$(hostname -f):{{ .Values.nifi_properties.http_port }}/nifi-api/controller/cluster > /tmp/cluster.state
+{{- end }}
+              # Get the cluster status
+              STATUS=$(jq -r ".cluster.nodes[] | select((.address==\"$(hostname -f)\") or .address==\"localhost\") | .status" /tmp/cluster.state)
+
+              if [[ $STATUS != "CONNECTED" ]]; then
+                echo "Node not found with CONNECTED state. Full cluster state:"
+                jq . /tmp/cluster.state
+                exit 1
+              fi
+        livenessProbe:
+          initialDelaySeconds: 90
+          periodSeconds: 60
+          tcpSocket:
+{{- if .Values.nifi_properties.secured }}
+            port: {{ .Values.nifi_properties.https_port }}
+{{- else }}
+            port: {{ .Values.nifi_properties.http_port }}
+{{- end }}
+        volumeMounts:
+{{- if .Values.nifi_properties.secured }}
+          - name: "config-data"
+            mountPath: /opt/nifi/nifi-current/config-data
+{{- end }}
+          - name: "data1"
+            mountPath: /data/partition1
+          - name: "data2"
+            mountPath: /data/partition2
+          - name: "data3"
+            mountPath: /data/partition3
+          - name: "logs"
+            mountPath: /opt/nifi/nifi-current/logs
+          - name: "bootstrap-conf"
+            mountPath: /opt/nifi/nifi-current/conf/bootstrap.conf
+            subPath: "bootstrap.conf"
+          - name: "nifi-properties"
+            mountPath: /opt/nifi/nifi-current/conf/nifi.temp
+            subPath: "nifi.temp"
+          - name: "authorizers-temp"
+            mountPath: /opt/nifi/nifi-current/conf/authorizers.temp
+            subPath: "authorizers.temp"
+          - name: "logback-xml"
+            mountPath: /opt/nifi/nifi-current/conf/logback.xml
+            subPath: "logback.xml"
+          - name: "state-management-xml"
+            mountPath: /opt/nifi/nifi-current/conf/state-management.xml
+            subPath: "state-management.xml"
+{{- if .Values.logContainers.enabled }}
+      - name: app-log
+        imagePullPolicy: {{ .Values.logContainers.image.pullPolicy | quote }}
+        image: "{{ .Values.logContainers.image.repository }}:{{ .Values.logContainers.image.tag }}"
+        args: [tail, -n+1, -F, /var/log/nifi-app.log]
+        resources:
+{{ toYaml .Values.logContainers.resources | indent 10 }}
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log
+      - name: bootstrap-log
+        imagePullPolicy: {{ .Values.logContainers.image.pullPolicy | quote }}
+        image: "{{ .Values.logContainers.image.repository }}:{{ .Values.logContainers.image.tag }}"
+        args: [tail, -n+1, -F, /var/log/nifi-bootstrap.log]
+        resources:
+{{ toYaml .Values.logContainers.resources | indent 10 }}
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log
+      - name: user-log
+        imagePullPolicy: {{ .Values.logContainers.image.pullPolicy | quote }}
+        image: "{{ .Values.logContainers.image.repository }}:{{ .Values.logContainers.image.tag }}"
+        args: [tail, -n+1, -F, /var/log/nifi-user.log]
+        resources:
+{{ toYaml .Values.logContainers.resources | indent 10 }}
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log
+{{- end }}
+      volumes:
+      - name: "bootstrap-conf"
+        configMap:
+          name: {{ template "nifi.fullname" . }}
+          items:
+            - key: "bootstrap.conf"
+              path: "bootstrap.conf"
+      - name: "nifi-properties"
+        configMap:
+          name: {{ template "nifi.fullname" . }}
+          items:
+            - key: "nifi.properties"
+              path: "nifi.temp"
+      - name: "authorizers-temp"
+        configMap:
+          name: {{ template "nifi.fullname" . }}
+          items:
+            - key: "authorizers.xml"
+              path: "authorizers.temp"
+      - name: "logback-xml"
+        configMap:
+          name: {{ template "nifi.fullname" . }}
+          items:
+            - key: "logback.xml"
+              path: "logback.xml"
+      - name: "state-management-xml"
+        configMap:
+          name: {{ template "nifi.fullname" . }}
+          items:
+            - key: "state-management.xml"
+              path: "state-management.xml"
+  volumeClaimTemplates:
+{{- if .Values.nifi_properties.secured }}
+    - metadata:
+        name: "config-data"
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.configPartitionSize }}
+{{- end }}
+    - metadata:
+        name: data1
+      spec:
+        accessModes:
+        {{- range .Values.persistence.accessModes }}
+          - {{ . | quote }}
+        {{- end }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.dataPartition1Size }}
+    - metadata:
+        name: data2
+      spec:
+        accessModes:
+        {{- range .Values.persistence.accessModes }}
+          - {{ . | quote }}
+        {{- end }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.dataPartition2Size }}
+    - metadata:
+        name: data3
+      spec:
+        accessModes:
+        {{- range .Values.persistence.accessModes }}
+          - {{ . | quote }}
+        {{- end }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.dataPartition3Size }}
+    - metadata:
+        name: logs
+      spec:
+        accessModes:
+        {{- range .Values.persistence.accessModes }}
+          - {{ . | quote }}
+        {{- end }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.logPartitionSize }}

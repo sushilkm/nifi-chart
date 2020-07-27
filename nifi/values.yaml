@@ -1,0 +1,117 @@
+---
+
+# image details
+image:
+  repository: apache/nifi
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# security context as per user in nifi image
+# This sets up the os-user security context to run the docker container
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# statefulset replica-count
+replicaCount: 3
+
+# headless service
+headless:
+  type: ClusterIP
+  annotations: 
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+
+# ui service
+service:
+  type: LoadBalancer
+  http_port: 80
+  https_port: 443
+  annotations: {}
+
+# Values for nifi.properties
+nifi_properties:
+  http_port: 8080
+  https_port: 8443
+  cluster_port: 8081
+  provenance_implementation: org.apache.nifi.provenance.VolatileProvenanceRepository
+# performance parameters
+  protocol_threads: 5
+  max_protocol_threads: 10
+  cluster_timeout: 60
+  zk_timeout: 15
+  webProxyHost: ""
+# security parameters
+  secured: false
+
+# performance parameters
+# Values for bootstrap.conf
+bootstrap_conf:
+  jvmMemory: 32g
+  g1ReservePercent: 20
+  concGcThreads: 1
+  parallelGcThreads: 1
+  initiatingHeapOccupancyPercent: 35
+
+# pvc details
+persistence:
+  storageClass: default
+  accessModes:  [ReadWriteOnce]
+  configPartitionSize: 100Mi
+  dataPartition1Size: 500Gi
+  dataPartition2Size: 500Gi
+  dataPartition3Size: 500Gi
+  logPartitionSize: 5Gi
+
+# Configure resource requests for nifi pods
+resources:
+  requests:
+    memory: "50Gi"
+    cpu: "0.9"
+
+# Parameters for logging containers running in statefulset
+logContainers:
+  enabled: true
+  image:
+    repository: alpine
+    pullPolicy: IfNotPresent
+    tag: latest
+  resources:
+    requests:
+      cpu: 10m
+      memory: 10Mi
+    limits:
+      cpu: 50m
+      memory: 50Mi
+
+# nodeselector
+nodeSelector: {}
+
+# zookeeper details
+zookeeper:
+  enabled: true
+  server: ""
+  port: 2181
+  image:
+    repository: zookeeper
+    pullPolicy: IfNotPresent
+    tag: latest
+
+# One can include additional libraries in the Nifi containers by using the postStart handler
+# postStart is essentially a shell command one can execute on the pods coming up
+# postStart: wget -P /opt/nifi/extensions/my.nar https://myLocation/my.nar
+
+# ca server details
+# Setting this true would create a nifi-toolkit based ca server
+# The ca server will be used to generate self-signed certificates required setting up secured cluster
+ca:
+  enabled: false
+  server: ""
+  port: 9090
+  token: sixteenCharacters
+  admin:
+    cn: admin
+  image:
+    repository: apache/nifi-toolkit
+    pullPolicy: IfNotPresent
+    tag: latest

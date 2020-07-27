@@ -1,0 +1,61 @@
+The release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  helm -n {{ .Release.Namespace }} status {{ .Release.Name }}
+  helm -n {{ .Release.Namespace }} get all {{ .Release.Name }}
+
+{{- if .Values.minikube }}
+
+Run an alipne/socat pod, and use port-forward to access the service, you can skip sudo if using service port >1024
+{{- if .Values.nifi_properties.secured }}
+  kubectl run -n {{ .Release.Namespace }} --restart=Never --image=alpine/socat {{ template "nifi.fullname" . }}-tunnel -- -d tcp-listen:{{ .Values.nifi_properties.https_port }},fork,reuseaddr tcp-connect:{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.https_port }}
+  sudo kubectl -n {{ .Release.Namespace }} port-forward pod/{{ template "nifi.fullname" . }}-tunnel {{ .Values.service.https_port }}:{{ .Values.nifi_properties.https_port }}
+{{- else }}
+  kubectl run -n {{ .Release.Namespace }} --restart=Never --image=alpine/socat {{ template "nifi.fullname" . }}-tunnel -- -d tcp-listen:{{ .Values.nifi_properties.http_port }},fork,reuseaddr tcp-connect:{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.http_port }}
+  sudo kubectl -n {{ .Release.Namespace }} port-forward pod/{{ template "nifi.fullname" . }}-tunnel {{ .Values.service.http_port }}:{{ .Values.nifi_properties.http_port }}
+{{- end }}
+
+Add following entry to the /etc/hosts
+{{- if .Values.nifi_properties.webProxyHost }}
+127.0.0.1 {{ .Values.nifi_properties.webProxyHost }}
+{{- else }}
+127.0.0.1 {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
+{{- end }}
+{{- else}}
+
+Get IP using following command, after pods are in running status
+kubectl get svc {{ template "nifi.fullname" . }} -n {{ .Release.Namespace }} -o jsonpath='{.status.loadBalancer.ingress[*].ip}' | xargs echo
+
+Add following entry to the /etc/hosts using IP_ADDRESS found by above command
+{{- if .Values.nifi_properties.webProxyHost }}
+IP_ADDRESS {{ .Values.nifi_properties.webProxyHost }}
+{{- else }}
+IP_ADDRESS {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
+{{- end }}
+{{- end }}
+
+Cluster is accessible at
+{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi_properties.webProxyHost }}
+https://{{ .Values.nifi_properties.webProxyHost }}:{{ .Values.service.https_port }}/nifi
+{{- else }}
+https://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.https_port }}/nifi
+{{- end }}
+{{- else }}
+{{- if .Values.nifi_properties.webProxyHost }}
+http://{{ .Values.nifi_properties.webProxyHost }}:{{ .Values.service.http_port }}/nifi
+{{- else }}
+http://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.http_port }}/nifi
+{{- end }}
+{{- end }}
+
+{{- if .Values.nifi_properties.secured }}
+
+Get the certificate and certificate-config from the pod as follows:
+  kubectl cp {{ .Release.Namespace }}/{{ template "nifi.fullname" . }}-0:/opt/nifi/nifi-current/config-data/certs/admin/keystore.pkcs12 keystore.pkcs12
+  kubectl cp {{ .Release.Namespace }}/{{ template "nifi.fullname" . }}-0:/opt/nifi/nifi-current/config-data/certs/admin/config.json config.json
+
+One can import this certificate obtained using the certificate password obtained as follows
+  jq -r .keyStorePassword config.json
+{{- end }}

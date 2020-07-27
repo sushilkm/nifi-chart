@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "nifi.headless" . }}
+  labels:
+    app: {{ include "nifi.name" . | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service | quote }}
+{{- if .Values.headless.annotations }}
+  annotations:
+{{ toYaml .Values.headless.annotations | indent 4 }}
+{{- end }}
+spec:
+  type: {{ .Values.headless.type }}
+  clusterIP: None
+  ports:
+{{- if .Values.nifi_properties.secured }}
+  - port: {{ .Values.nifi_properties.https_port }}
+    name: https
+{{- else}}
+  - port: {{ .Values.nifi_properties.http_port }}
+    name: http
+{{- end }}
+  - port: {{ .Values.nifi_properties.cluster_port }}
+    name: cluster
+  selector:
+    app: {{ include "nifi.name" . | quote }}
+    release: {{ .Release.Name | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "nifi.fullname" . }}
+  labels:
+    app: {{ include "nifi.name" . | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name | quote }}
+    heritage: {{ .Release.Service | quote }}
+{{- if .Values.service.annotations }}
+  annotations:
+{{ toYaml .Values.service.annotations | indent 4 }}
+{{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+{{- if .Values.nifi_properties.secured }}
+    - port: {{ .Values.service.https_port }}
+      name: https
+      targetPort: {{ .Values.nifi_properties.https_port }}
+{{- else}}
+    - port: {{ .Values.service.http_port }}
+      name: http
+      targetPort: {{ .Values.nifi_properties.http_port }}
+{{- end }}
+  selector:
+    app: {{ template "nifi.name" . }}
+    release: {{ .Release.Name }}
