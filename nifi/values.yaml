@@ -3,7 +3,7 @@
 # image details
 image:
   repository: apache/nifi
-  tag: "latest"
+  tag: "1.11.4"
   pullPolicy: IfNotPresent
 
 # security context as per user in nifi image
@@ -114,4 +114,4 @@ ca:
   image:
     repository: apache/nifi-toolkit
     pullPolicy: IfNotPresent
-    tag: latest
+    tag: "1.11.4"
