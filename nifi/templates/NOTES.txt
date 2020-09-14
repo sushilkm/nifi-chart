@@ -10,10 +10,10 @@ To learn more about the release, try:
 Run an alipne/socat pod, and use port-forward to access the service, you can skip sudo if using service port >1024
 {{- if .Values.nifi_properties.secured }}
   kubectl run -n {{ .Release.Namespace }} --restart=Never --image=alpine/socat {{ template "nifi.fullname" . }}-tunnel -- -d tcp-listen:{{ .Values.nifi_properties.https_port }},fork,reuseaddr tcp-connect:{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.https_port }}
-  sudo kubectl -n {{ .Release.Namespace }} port-forward pod/{{ template "nifi.fullname" . }}-tunnel {{ .Values.service.https_port }}:{{ .Values.nifi_properties.https_port }}
+  sudo kubectl -n {{ .Release.Namespace }} port-forward pod/{{ template "nifi.fullname" . }}-tunnel {{ .Values.service.https_port }}:{{ .Values.nifi_properties.https_port }} --address 0.0.0.0
 {{- else }}
   kubectl run -n {{ .Release.Namespace }} --restart=Never --image=alpine/socat {{ template "nifi.fullname" . }}-tunnel -- -d tcp-listen:{{ .Values.nifi_properties.http_port }},fork,reuseaddr tcp-connect:{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.http_port }}
-  sudo kubectl -n {{ .Release.Namespace }} port-forward pod/{{ template "nifi.fullname" . }}-tunnel {{ .Values.service.http_port }}:{{ .Values.nifi_properties.http_port }}
+  sudo kubectl -n {{ .Release.Namespace }} port-forward pod/{{ template "nifi.fullname" . }}-tunnel {{ .Values.service.http_port }}:{{ .Values.nifi_properties.http_port }} --address 0.0.0.0
 {{- end }}
 
 Add following entry to the /etc/hosts
