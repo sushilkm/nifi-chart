@@ -1,0 +1,56 @@
+tmp/
+Thumbs.db
+.DS_Store
+.history
+.cache
+.env
+.env.yml
+.vscode
+.vagrant/
+*.log
+*.bak
+*.tmp
+*.retry
+*.swp
+
+# Java, Java IDEs, Maven, etc.
+target/
+nbactions.xml
+nb-configuration.xml
+local.properties
+.project
+.settings
+.classpath
+.factorypath
+.idea/
+*.iml
+*.iws
+*~
+*.class
+
+# Scala, SBT
+.lib/
+dist/*
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+project/project/
+project/target
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pydevproject
+.venv
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Helm Charts
+*.lock
+*.tgz
