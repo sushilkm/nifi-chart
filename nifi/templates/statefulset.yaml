@@ -260,10 +260,11 @@ spec:
             - |
               # Setting up the readiness probe
 {{- if .Values.nifi_properties.secured }}
+              base_url_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
               curl -kv \
                 --cert ${NIFI_HOME}/config-data/certs/admin/crt.pem --cert-type PEM \
                 --key ${NIFI_HOME}/config-data/certs/admin/key.pem --key-type PEM \
-                https://$(hostname -f):{{ .Values.nifi_properties.https_port }}/nifi-api/controller/cluster > /tmp/cluster.state
+                https://$base_url_host:{{ .Values.nifi_properties.https_port }}/nifi-api/controller/cluster > /tmp/cluster.state
 {{- else }}
               curl -kv \
                 http://$(hostname -f):{{ .Values.nifi_properties.http_port }}/nifi-api/controller/cluster > /tmp/cluster.state
