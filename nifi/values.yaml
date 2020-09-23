@@ -33,6 +33,9 @@ service:
 
 # Values for nifi.properties
 nifi_properties:
+  enable_service_on_loopback: true
+  default_network_interface: eth0
+  loopback_network_interface: lo
   http_port: 8080
   https_port: 8443
   cluster_port: 8081

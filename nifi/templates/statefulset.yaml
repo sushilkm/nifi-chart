@@ -152,6 +152,9 @@ spec:
           update_property nifi.security.keyPasswd          $(jq -r .keyPassword ${NIFI_HOME}/config-data/certs/config.json)
           update_property nifi.security.truststore   ${NIFI_HOME}/config-data/certs/truststore.jks
           update_property nifi.security.truststorePasswd   $(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/config.json)
+{{- if .Values.nifi_properties.default_network_interface }}
+          update_property nifi.web.https.network.interface.default {{ .Values.nifi_properties.default_network_interface }}
+{{- end }}
 
           base_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0)
           if [[ `hostname` != "$base_host" ]]; then
@@ -170,6 +173,9 @@ spec:
 
 {{- else }}
           update_property nifi.web.http.host ${NIFI_HOST}
+{{- if .Values.nifi_properties.default_network_interface }}
+          update_property nifi.web.http.network.interface.default {{ .Values.nifi_properties.default_network_interface }}
+{{- end }}
 {{- end }}
           exec bin/nifi.sh run
         resources:
