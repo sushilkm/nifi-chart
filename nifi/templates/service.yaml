@@ -57,3 +57,7 @@ spec:
   selector:
     app: {{ template "nifi.name" . }}
     release: {{ .Release.Name }}
+  sessionAffinity: {{ .Values.service.sessionAffinity }}
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: {{ .Values.service.sessionAffinityTimeoutInSeconds }}

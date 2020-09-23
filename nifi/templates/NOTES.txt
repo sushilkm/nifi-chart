@@ -51,6 +51,7 @@ http://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.
 {{- end }}
 
 {{- if .Values.nifi_properties.secured }}
+{{- if and (ne .Values.nifi_properties.authentication.openid.enabled true) (ne .Values.nifi_properties.authentication.ldap.enabled true) }}
 
 Get the certificate and certificate-config from the pod as follows:
   kubectl cp {{ .Release.Namespace }}/{{ template "nifi.fullname" . }}-0:/opt/nifi/nifi-current/config-data/certs/admin/keystore.pkcs12 keystore.pkcs12
@@ -58,4 +59,5 @@ Get the certificate and certificate-config from the pod as follows:
 
 One can import this certificate obtained using the certificate password obtained as follows
   jq -r .keyStorePassword config.json
+{{- end }}
 {{- end }}

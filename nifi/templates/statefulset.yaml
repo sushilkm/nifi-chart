@@ -108,6 +108,11 @@ spec:
       - name: server
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+{{- if .Values.nifi_properties.authentication.ldap.manager_password }}
+        envFrom:
+        - secretRef:
+            name: {{ template "nifi.fullname" . }}
+{{- end }}
         command:
         - bash
         - -ce
@@ -127,6 +132,13 @@ spec:
           NIFI_HOST=$(hostname -f)
           # Create authorizers.xml
           cat "${NIFI_HOME}/conf/authorizers.temp" > "${NIFI_HOME}/conf/authorizers.xml"
+          # Create login-identity-providers.xml
+          cat "${NIFI_HOME}/conf/login-identity-providers.temp" > "${NIFI_HOME}/conf/login-identity-providers.xml"
+{{- if .Values.nifi_properties.authentication.ldap.manager_password }}
+          # Add manager DN Password for ldap access
+          sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/authorizers.xml"
+          sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+{{- end }}
           # Create and update nifi.properties
           cat "${NIFI_HOME}/conf/nifi.temp" > "${NIFI_HOME}/conf/nifi.properties"
           update_property nifi.remote.input.host ${NIFI_HOST}
@@ -253,6 +265,10 @@ spec:
         readinessProbe:
           initialDelaySeconds: 60
           periodSeconds: 20
+{{- if or .Values.nifi_properties.authentication.openid.enabled .Values.nifi_properties.authentication.ldap.enabled }}
+          tcpSocket:
+            port: {{ .Values.nifi_properties.https_port }}
+{{- else }}
           exec:
             command:
             - bash
@@ -277,6 +293,7 @@ spec:
                 jq . /tmp/cluster.state
                 exit 1
               fi
+{{- end }}
         livenessProbe:
           initialDelaySeconds: 90
           periodSeconds: 60
@@ -314,6 +331,9 @@ spec:
           - name: "state-management-xml"
             mountPath: /opt/nifi/nifi-current/conf/state-management.xml
             subPath: "state-management.xml"
+          - name: "login-identity-providers-xml"
+            mountPath: /opt/nifi/nifi-current/conf/login-identity-providers.temp
+            subPath: "login-identity-providers.temp"
 {{- if .Values.logContainers.enabled }}
       - name: app-log
         imagePullPolicy: {{ .Values.logContainers.image.pullPolicy | quote }}
@@ -374,6 +394,12 @@ spec:
           items:
             - key: "state-management.xml"
               path: "state-management.xml"
+      - name: "login-identity-providers-xml"
+        configMap:
+          name: {{ template "nifi.fullname" . }}
+          items:
+            - key: "login-identity-providers.xml"
+              path: "login-identity-providers.temp"
   volumeClaimTemplates:
 {{- if .Values.nifi_properties.secured }}
     - metadata:

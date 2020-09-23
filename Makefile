@@ -37,3 +37,23 @@ deploy-secured-nifi-on-minikube: update-nifi-dependency
 .phony: delete-nifi-release
 delete-nifi-release:
 	helm delete ${RELEASE_NAME} -n ${NAMESPACE_NAME}
+
+.phony: deploy-secured-nifi-with-openid-authentication-on-minikube
+deploy-secured-nifi-with-openid-authentication-on-minikube: update-nifi-dependency
+	kubectl get namespace ${NAMESPACE_NAME} > /dev/null 2>&1  || kubectl create namespace ${NAMESPACE_NAME}
+	helm install ${RELEASE_NAME} -f ${NIFI_CHART_DIR}/minikube-values.yaml -f ${NIFI_CHART_DIR}/openid-values.yaml ${NIFI_CHART_DIR} -n ${NAMESPACE_NAME}
+
+.phony: deploy-secured-nifi-with-openid-authentication
+deploy-secured-nifi-with-openid-authentication: update-nifi-dependency
+	kubectl get namespace ${NAMESPACE_NAME} > /dev/null 2>&1  || kubectl create namespace ${NAMESPACE_NAME}
+	helm install ${RELEASE_NAME} -f ${NIFI_CHART_DIR}/openid-values.yaml ${NIFI_CHART_DIR} -n ${NAMESPACE_NAME}
+
+.phony: deploy-secured-nifi-with-ldap-authentication-on-minikube
+deploy-secured-nifi-with-ldap-authentication-on-minikube: update-nifi-dependency
+	kubectl get namespace ${NAMESPACE_NAME} > /dev/null 2>&1  || kubectl create namespace ${NAMESPACE_NAME}
+	helm install ${RELEASE_NAME} -f ${NIFI_CHART_DIR}/minikube-values.yaml ${NIFI_CHART_DIR} -n ${NAMESPACE_NAME}
+
+.phony: deploy-secured-nifi-with-ldap-authentication
+deploy-secured-nifi-with-ldap-authentication: update-nifi-dependency
+	kubectl get namespace ${NAMESPACE_NAME} > /dev/null 2>&1  || kubectl create namespace ${NAMESPACE_NAME}
+	helm install ${RELEASE_NAME} -f ${NIFI_CHART_DIR}/ldap-values.yaml ${NIFI_CHART_DIR} -n ${NAMESPACE_NAME}

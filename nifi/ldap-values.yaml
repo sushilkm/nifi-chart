@@ -1,0 +1,37 @@
+nifi_properties:
+  secured: true
+  authentication:
+    ldap:
+      enabled: true
+      url: ""
+      manager_dn: ""
+      manager_password: ""
+      admin_user_cn: ""
+      user_search_base: ""
+      user_search_filter: ""
+      user_search_scope: "ONE_LEVEL"
+      authorizers_provider_enforce_case_sensitivity: "false"
+      authorizers_provider_page_size: ""
+      authorizers_provider_sync_interval: "1 mins"
+      authorizers_provider_user_object_class: ""
+      authorizers_provider_user_search_scope: "ONE_LEVEL"
+      authorizers_provider_user_search_filter: ""
+      authorizers_provider_user_identity_attribute: "cn"
+      authorizers_provider_user_group_name_attribute: ""
+      authorizers_provider_user_referenced_group_attribute: ""
+      authorizers_provider_group_search_base: ""
+      authorizers_provider_group_object_class: ""
+      authorizers_provider_group_search_scope: "ONE_LEVEL"
+      authorizers_provider_group_search_filter: ""
+      authorizers_provider_group_name_attribute: "cn"
+      authorizers_provider_group_member_attribute: ""
+      authorizers_provider_group_referenced_user_attribute: ""
+      auth_strategy: "SIMPLE"
+      referral_strategy: "FOLLOW"
+      connect_timeout: "10 secs"
+      read_timeout: "10 secs"
+      identity_strategy: "USE_USERNAME"
+      authentication_expiration_period: "12 hours"
+
+ca:
+  enabled: true

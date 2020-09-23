@@ -28,6 +28,8 @@ service:
   http_port: 80
   https_port: 443
   annotations: {}
+  sessionAffinity: "ClientIP"
+  sessionAffinityTimeoutInSeconds: 60
 
 # Values for nifi.properties
 nifi_properties:
@@ -43,6 +45,48 @@ nifi_properties:
   webProxyHost: ""
 # security parameters
   secured: false
+# authentication parameters
+  authentication:
+    ldap:
+      enabled: false
+      url: ""
+      manager_dn: ""
+      manager_password: ""
+      admin_user_cn: ""
+      user_search_base: ""
+      user_search_filter: ""
+      user_search_scope: "ONE_LEVEL"
+      authorizers_provider_enforce_case_sensitivity: "false"
+      authorizers_provider_sync_interval: "30 mins"
+      authorizers_provider_page_size: ""
+      authorizers_provider_user_object_class: ""
+      authorizers_provider_user_search_scope: "ONE_LEVEL"
+      authorizers_provider_user_search_filter: ""
+      authorizers_provider_user_identity_attribute: "cn"
+      authorizers_provider_user_group_name_attribute: ""
+      authorizers_provider_user_referenced_group_attribute: ""
+      authorizers_provider_group_search_base: ""
+      authorizers_provider_group_object_class: ""
+      authorizers_provider_group_search_scope: "ONE_LEVEL"
+      authorizers_provider_group_search_filter: ""
+      authorizers_provider_group_name_attribute: "cn"
+      authorizers_provider_group_member_attribute: ""
+      authorizers_provider_group_referenced_user_attribute: ""
+      auth_strategy: "SIMPLE"
+      referral_strategy: "FOLLOW"
+      connect_timeout: "10 secs"
+      read_timeout: "10 secs"
+      identity_strategy: "USE_USERNAME"
+      authentication_expiration_period: "12 hours"
+    openid:
+      enabled: false
+      discovery_url: ""
+      client_id: ""
+      client_secret: ""
+      admin_user: ""
+      additional_scopes: "profile"
+      preferred_jws_algorithm: ""
+      claim_identitying_user: ""
 
 # performance parameters
 # Values for bootstrap.conf
