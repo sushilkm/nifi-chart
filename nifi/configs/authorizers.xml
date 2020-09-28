@@ -54,11 +54,19 @@
         <property name="Legacy Authorized Users File"></property>
 {{- if .Values.nifi_properties.authentication.openid.admin_user }}
         <property name="Initial User Identity openid_admin">{{ .Values.nifi_properties.authentication.openid.admin_user }}</property>
-{{- else }}
+{{- else if .Values.certs.admin_user.enabled }}
+        <property name="Initial User Identity admin">{{ .Values.certs.admin_user.cn }}</property>
+{{- else if .Values.ca.enabled }}
         <property name="Initial User Identity admin">CN={{ .Values.ca.admin.cn }}, OU=NIFI</property>
 {{- end }}
+{{- if .Values.certs.admin_user.enabled }}
+{{- range $i := until $replicas }}
+        <property name="Initial User Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local</property>
+{{- end }}
+{{- else if .Values.ca.enabled }}
 {{- range $i := until $replicas }}
         <property name="Initial User Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local, OU=NIFI</property>
+{{- end }}
 {{- end }}
     </userGroupProvider>
 
@@ -294,13 +302,21 @@
         <property name="Initial Admin Identity">{{ .Values.nifi_properties.authentication.openid.admin_user }}</property>
 {{- else if .Values.nifi_properties.authentication.ldap.admin_user_cn }}
         <property name="Initial Admin Identity">{{ .Values.nifi_properties.authentication.ldap.admin_user_cn }}</property>
-{{- else }}
+{{- else if .Values.certs.admin_user.enabled }}
+        <property name="Initial Admin Identity">{{ .Values.certs.admin_user.cn }}</property>
+{{- else if .Values.ca.enabled }}
         <property name="Initial Admin Identity">CN={{ .Values.ca.admin.cn }}, OU=NIFI</property>
 {{- end }}
+        <property name="Legacy Authorized Users File"></property>
+{{- if .Values.certs.admin_user.enabled }}
+{{- range $i := until $replicas }}
+        <property name="Node Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local</property>
+{{- end }}
+{{- else if .Values.ca.enabled }}
 {{- range $i := until $replicas }}
         <property name="Node Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local, OU=NIFI</property>
 {{- end }}
-
+{{- end }}
         <property name="Node Group"></property>
     </accessPolicyProvider>
 

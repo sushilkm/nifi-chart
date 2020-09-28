@@ -1,0 +1,24 @@
+# Default values for certs.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+# All certificates need to be copied to chart_directory/dir
+# Copy your certficates and private keys and update the filenames accordingly
+# If you have more or less nodes update the list "node_certs" accordingly
+dir: certificates
+ca_certificate: rootCA.crt
+admin_user:
+  enabled: true
+  cn: "CN=admins"
+  private_key: admins.key
+  certificate: admins.crt
+node_certs:
+  - node: 1
+    private_key: n1.key
+    certificate: n1.crt
+  - node: 2
+    private_key: n2.key
+    certificate: n2.crt
+  - node: 3
+    private_key: n3.key
+    certificate: n3.crt
+

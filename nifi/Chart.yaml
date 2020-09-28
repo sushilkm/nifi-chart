@@ -17,3 +17,6 @@ dependencies:
   - name: ca
     version: 1.0.0
     condition: ca.enabled
+  - name: certs
+    version: 1.0.0
+    condition: certs.enabled

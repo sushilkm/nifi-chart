@@ -162,3 +162,23 @@ ca:
     repository: apache/nifi-toolkit
     pullPolicy: IfNotPresent
     tag: "1.11.4"
+
+certs:
+  enabled: false
+  name: ""
+  ca_certificate: root_ca_certificate
+  admin_user:
+    enabled: true
+    cn: "CN=admin"
+    private_key: admin_private_key
+    certificate: admin_certificate
+  node_certs:
+    - node: 1
+      private_key: node1_private_key
+      certificate: node1_certificate
+    - node: 2
+      private_key: node2_private_key
+      certificate: node2_certificate
+    - node: 3
+      private_key: node3_private_key
+      certificate: node3_certificate

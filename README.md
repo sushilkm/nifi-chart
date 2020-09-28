@@ -22,6 +22,7 @@ Following is a list of make targets to interact with the charts in directory.
 - `deploy-secured-nifi-with-ldap-authentication` - Deploy nifi chart on kubernetes to bring up a secured NiFi cluster authenticating via LDAP.
 
 # Deploying NiFi with authentication using OpenID Connect and Azure AD
+
 To deploy secure cluster using OpenId authentication, one would need to register an application allowing access to Azure AD.
 
 - On the Azure Active Directory page, under Manage, select App registrations.
@@ -46,6 +47,7 @@ for eg. https://sample-1599088494-nifi.sample-1599088494.svc:443/nifi-api/access
 - Now you are good to go, access your NiFi UI, you would be redirected to Azure signin/app authorization and then redirected to NiFi UI.
 
 # Deploying NiFi with authentication using LDAP Server
+
 - One would need to provide the value of following paramters either in [values.yaml](./nifi/values.yaml) [ldap-values.yaml](./nifi/ldap-values.yaml)
     - `url`: This is ldap server URL, in the format `ldap://ldap_server_ip_or_name:ldap_server_port`
     - `manager_dn`: The DN of the manager that is used to bind to the LDAP server to search for users.
@@ -62,3 +64,148 @@ for eg. https://sample-1599088494-nifi.sample-1599088494.svc:443/nifi-api/access
 - Now run make target `deploy-secured-nifi-with-ldap-authentication` to deploy NiFi using these configurations.
 - Hostname of the accessible NiFi UI is suggested in the output. Add the DNS entry you are supposed to add in /etc/hosts file.
 - Now you are good to go, access your NiFi UI, you would be redirected to login page on NiFi UI.
+
+# Deploying NiFi using user-provided certificates and key
+
+If you want to deploy nifi with user provided certificates and keys then proceed as follows:
+
+- We have got a values file [secured-values-with-user-provided-certs.yaml](./nifi/secured-values-with-user-provided-certs.yaml) where one can provide values certiifcate and private-key filenames.
+- Copy your root-ca certificate, node-specific certificate and their private-key files to [nifi/certificates](./nifi/certficates) directory. We do not need private key for root-ca.
+- Now specify the `node_certs` list with node number, privatekey file-name and certificate file-name as already suggested in the [`secured-values-with-user-provided-certs.yaml`](./nifi/secured-values-with-user-provided-certs.yaml) file.
+- You can add/remove the numbers as per your requirement like
+    ```
+    - node: 4
+       private_key: file4.key
+       certificate: file4.crt
+    ...
+    ...
+    ```
+- If you are using certificate authentication then
+    - enable admin user using `admin_user.enabled` to `true` otherwise `false`.
+    - provide admin_user DN details as already the example provided.
+    - provide admin certificate and private-key file-names under `admin_user` details.
+- Once all the required files are copied to `certificates` directory and their names have been specified in `secured-values-with-user-provided-certs.yaml`, then call `deploy-secured-nifi-with-user-certs` make target to deploy NiFi cluster.
+
+    ```
+    $ make deploy-secured-nifi-with-user-certs
+    ```
+
+## Scaling up NiFi deployed using user-provided certificates and key
+
+Once you have deployed NiFi cluster using the user-provided certificates, and you want to scale up, then proceed as follows.
+
+- Copy your new node-specific certificate and their private-key files to [nifi/certificates](./nifi/certficates) directory. We do not need private key for root-ca.
+- Now specify the `node_certs` list with new node number, privatekey file-name and certificate file-name in the [add-more-certs-values.yaml](./nifi/add-more-certs-values.yaml) file.
+- You do not need to add pre-existing certificates to this values file, it is optional.
+- You can add/remove the numbers as per your requirement like
+    ```
+    - node: 4
+       private_key: file4.key
+       certificate: file4.crt
+    ...
+    ...
+    ```
+- Run `update-secret-with-more-certs` make target as follows providing the detail for namespace and release name.
+    ```
+    $ DEPLOYED_NS=suskuma make update-secret-with-more-certs
+    ```
+    or
+    ```
+    $ DEPLOYED_NS=ns1 DEPLOYED=rs1 make update-secret-with-more-certs
+    ```
+    First example woud use release name as namespace itself.
+- Last step would generate a file `deployed_secret.yaml` which has details of existing secret
+- Copy the new details from the output of previous command, this data could be found under `node_certs` for eg.
+    ```
+    node_4_private_key: "sample_key_data"
+    node_4_certificate: "sample_cert_data"
+    node_5_private_key: "sample_key_data"
+    node_5_certificate: "sample_cert_data"
+    ```
+- Now one has to put this data in `deployed_secret.yaml` file under `data` section, for eg.
+    Following is the original content of file `deployed_secret.yaml`
+    ```
+    apiVersion: v1
+    data:
+    admin_certificate: sample_cert_data
+    admin_private_key: sample_key_data
+    ca_certificate: sample_cert_data
+    node_1_certificate: sample_cert_data
+    node_1_private_key: sample_key_data
+    node_2_certificate: sample_cert_data
+    node_2_private_key: sample_key_data
+    node_3_certificate: sample_cert_data
+    node_3_private_key: sample_key_data
+
+    node_certs: ""
+    kind: Secret
+    metadata:
+    annotations:
+        meta.helm.sh/release-name: suskuma
+        meta.helm.sh/release-namespace: suskuma
+    creationTimestamp: "2020-09-21T01:01:27Z"
+    labels:
+        app: suskuma-certs
+        app.kubernetes.io/managed-by: Helm
+        chart: certs-1.0.0
+        heritage: Helm
+        release: suskuma
+    name: suskuma-certs
+    namespace: suskuma
+    resourceVersion: "3995205"
+    selfLink: /api/v1/namespaces/suskuma/secrets/suskuma-certs
+    uid: f4ad66a5-e8b2-49af-8ce9-61183a2b1a49
+    type: Opaque
+    ```
+
+    Following is the content of file `deployed_secret.yaml`, after adding new details
+    ```
+    apiVersion: v1
+    data:
+    node_4_certificate: sample_cert_data
+    node_4_private_key: sample_key_data
+    node_5_certificate: sample_cert_data
+    node_5_private_key: sample_key_data
+    admin_certificate: sample_cert_data
+    admin_private_key: sample_key_data
+    ca_certificate: sample_cert_data
+    node_1_certificate: sample_cert_data
+    node_1_private_key: sample_key_data
+    node_2_certificate: sample_cert_data
+    node_2_private_key: sample_key_data
+    node_3_certificate: sample_cert_data
+    node_3_private_key: sample_key_data
+
+    node_certs: ""
+    kind: Secret
+    metadata:
+    annotations:
+        meta.helm.sh/release-name: suskuma
+        meta.helm.sh/release-namespace: suskuma
+    creationTimestamp: "2020-09-21T01:01:27Z"
+    labels:
+        app: suskuma-certs
+        app.kubernetes.io/managed-by: Helm
+        chart: certs-1.0.0
+        heritage: Helm
+        release: suskuma
+    name: suskuma-certs
+    namespace: suskuma
+    resourceVersion: "3995205"
+    selfLink: /api/v1/namespaces/suskuma/secrets/suskuma-certs
+    uid: f4ad66a5-e8b2-49af-8ce9-61183a2b1a49
+    type: Opaque
+    ```
+- Now run following command to update secret with new certificates and keys
+
+    ```
+    $ kubectl apply -f deployed_secret.yaml
+    ```
+- Once secret is updated now you can proceed for scale-up operation on scaleset.
+    ```
+    $ kubectl -n ns1 get sts
+    NAME                READY   AGE
+    ns1-nifi        0/3     110s
+    ns1-zookeeper   0/1     110s
+    $ kubectl -n ns1 scale sts ns1-nifi --replicas=4
+    ```

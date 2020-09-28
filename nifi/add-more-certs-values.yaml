@@ -1,0 +1,7 @@
+node_certs:
+  - node: 4
+    private_key: node4.key
+    certificate: node4.crt
+  - node: 5
+    private_key: node5.key
+    certificate: node5.crt

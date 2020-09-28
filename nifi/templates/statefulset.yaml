@@ -103,6 +103,53 @@ spec:
         volumeMounts:
           - name: "config-data"
             mountPath: /data/config-data
+{{- else if .Values.nifi_properties.secured }}
+      - name: cert
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        # We do not use nifi-toolkit for anything, but the dependency softwares.
+        # Dependent softwares we need are openssl, keytool and jq.
+        image: apache/nifi-toolkit
+        command:
+        - bash
+        - -c
+        - |
+          cd /data/config-data
+          rm -rf certs
+          mkdir -p certs/admin
+          cd certs
+          export node_number_from_hostname=$(hostname | rev | awk -F "-" '{print $1}' | rev)
+          export node_number=$((node_number_from_hostname+1))
+          export store_password=$(openssl rand -base64 32)
+          jq -n \
+            --arg password "$store_password" \
+            '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password}' \
+            > config.json
+          keytool -import \
+            -file /opt/certs/ca_certificate \
+            -keystore truststore.jks \
+            -storepass $store_password \
+            -noprompt
+          openssl pkcs12 -export \
+            -in /opt/certs/node_${node_number}_certificate \
+            -inkey /opt/certs/node_${node_number}_private_key \
+            -out node_${node_number}.p12 \
+            -password pass:$store_password
+          keytool -importkeystore \
+            -srckeystore node_${node_number}.p12 \
+            -srcstoretype PKCS12 \
+            -destkeystore keystore.jks \
+            -deststoretype JKS \
+            -storepass $store_password \
+            -srcstorepass $store_password \
+            -noprompt
+          cd admin
+          cp /opt/certs/admin_certificate ./crt.pem
+          cp /opt/certs/admin_private_key ./key.pem
+        volumeMounts:
+          - name: "config-data"
+            mountPath: /data/config-data
+          - name: "certificates"
+            mountPath: /opt/certs
 {{- end }}
       containers:
       - name: server
@@ -370,6 +417,11 @@ spec:
           mountPath: /var/log
 {{- end }}
       volumes:
+{{- if and .Values.nifi_properties.secured ( ne .Values.ca.enabled true) }}
+      - name : "certificates"
+        secret:
+          secretName: {{ template "certs.name" . }}
+{{- end }}
       - name: "bootstrap-conf"
         configMap:
           name: {{ template "nifi.fullname" . }}

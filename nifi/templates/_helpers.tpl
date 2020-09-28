@@ -64,3 +64,14 @@ Create the Zookeeper URL using user-provided zookeeper server-name and port
 {{- printf "%s:%s" .Values.zookeeper.server $port }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Create certs.name
+*/}}
+{{- define "certs.name" }}
+{{- if ".Values.certs.enabled" -}}
+{{- printf "%s-certs" .Release.Name }}
+{{- else -}}
+{{- printf "%s" ".Values.certs.name" }}
+{{- end -}}
+{{- end -}}
