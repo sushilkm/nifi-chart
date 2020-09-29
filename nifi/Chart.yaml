@@ -16,7 +16,7 @@ dependencies:
     condition: zookeeper.enabled
   - name: ca
     version: 1.0.0
-    condition: ca.enabled
+    condition: nifi.certificate_source.nifi_toolkit
   - name: certs
     version: 1.0.0
-    condition: certs.enabled
+    condition: nifi.certificate_source.user_provided

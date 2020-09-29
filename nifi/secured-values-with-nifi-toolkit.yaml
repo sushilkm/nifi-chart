@@ -1,5 +1,5 @@
-nifi_properties:
-  secured: true
-
-ca:
-  enabled: true
+nifi:
+  properties:
+    secured: true
+  certificate_source:
+    nifi_toolkit: true

@@ -16,14 +16,14 @@ spec:
   type: {{ .Values.headless.type }}
   clusterIP: None
   ports:
-{{- if .Values.nifi_properties.secured }}
-  - port: {{ .Values.nifi_properties.https_port }}
+{{- if .Values.nifi.properties.secured }}
+  - port: {{ .Values.nifi.properties.port.https }}
     name: https
 {{- else}}
-  - port: {{ .Values.nifi_properties.http_port }}
+  - port: {{ .Values.nifi.properties.port.http }}
     name: http
 {{- end }}
-  - port: {{ .Values.nifi_properties.cluster_port }}
+  - port: {{ .Values.nifi.properties.port.cluster }}
     name: cluster
   selector:
     app: {{ include "nifi.name" . | quote }}
@@ -45,14 +45,14 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-{{- if .Values.nifi_properties.secured }}
-    - port: {{ .Values.service.https_port }}
+{{- if .Values.nifi.properties.secured }}
+    - port: {{ .Values.service.port.https }}
       name: https
-      targetPort: {{ .Values.nifi_properties.https_port }}
+      targetPort: {{ .Values.nifi.properties.port.https }}
 {{- else}}
-    - port: {{ .Values.service.http_port }}
+    - port: {{ .Values.service.port.http }}
       name: http
-      targetPort: {{ .Values.nifi_properties.http_port }}
+      targetPort: {{ .Values.nifi.properties.port.http }}
 {{- end }}
   selector:
     app: {{ template "nifi.name" . }}

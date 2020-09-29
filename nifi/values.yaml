@@ -25,80 +25,87 @@ headless:
 # ui service
 service:
   type: LoadBalancer
-  http_port: 80
-  https_port: 443
+  port:
+    http: 80
+    https: 443
   annotations: {}
   sessionAffinity: "ClientIP"
   sessionAffinityTimeoutInSeconds: 60
 
-# Values for nifi.properties
-nifi_properties:
-  enable_service_on_loopback: true
-  default_network_interface: eth0
-  loopback_network_interface: lo
-  http_port: 8080
-  https_port: 8443
-  cluster_port: 8081
-  provenance_implementation: org.apache.nifi.provenance.VolatileProvenanceRepository
-# performance parameters
-  protocol_threads: 5
-  max_protocol_threads: 10
-  cluster_timeout: 60
-  zk_timeout: 15
-  webProxyHost: ""
-# security parameters
-  secured: false
-# authentication parameters
+nifi:
+  # Values for bootstrap.conf
+  bootstrap_conf:
+    jvmMemory: 32g
+    g1ReservePercent: 20
+    concGcThreads: 1
+    parallelGcThreads: 1
+    initiatingHeapOccupancyPercent: 35
+  # Values for nifi.properties
+  properties:
+    network_interface:
+      default: eth0
+      loopback: lo
+      enable_service_on_loopback: true
+    port:
+      http: 8080
+      https: 8443
+      cluster: 8081
+    provenance_implementation: org.apache.nifi.provenance.VolatileProvenanceRepository
+    # performance parameters
+    protocol_threads: 5
+    max_protocol_threads: 10
+    cluster_timeout: 60
+    zk_timeout: 15
+    webProxyHost: ""
+    # security parameters
+    secured: false
+  certificate_source:
+    nifi_toolkit: false
+    user_provided: false
+  # authentication parameters
   authentication:
     ldap:
       enabled: false
+      authentication_strategy: "SIMPLE"
+      referral_strategy: "FOLLOW"
+      identity_strategy: "USE_USERNAME"
       url: ""
       manager_dn: ""
       manager_password: ""
-      admin_user_cn: ""
-      user_search_base: ""
-      user_search_filter: ""
-      user_search_scope: "ONE_LEVEL"
-      authorizers_provider_enforce_case_sensitivity: "false"
-      authorizers_provider_sync_interval: "30 mins"
-      authorizers_provider_page_size: ""
-      authorizers_provider_user_object_class: ""
-      authorizers_provider_user_search_scope: "ONE_LEVEL"
-      authorizers_provider_user_search_filter: ""
-      authorizers_provider_user_identity_attribute: "cn"
-      authorizers_provider_user_group_name_attribute: ""
-      authorizers_provider_user_referenced_group_attribute: ""
-      authorizers_provider_group_search_base: ""
-      authorizers_provider_group_object_class: ""
-      authorizers_provider_group_search_scope: "ONE_LEVEL"
-      authorizers_provider_group_search_filter: ""
-      authorizers_provider_group_name_attribute: "cn"
-      authorizers_provider_group_member_attribute: ""
-      authorizers_provider_group_referenced_user_attribute: ""
-      auth_strategy: "SIMPLE"
-      referral_strategy: "FOLLOW"
       connect_timeout: "10 secs"
       read_timeout: "10 secs"
-      identity_strategy: "USE_USERNAME"
-      authentication_expiration_period: "12 hours"
+      user_search_base: ""
+      user_search_filter: ""
+      expiration_period: "12 hours"
     openid:
       enabled: false
       discovery_url: ""
       client_id: ""
       client_secret: ""
-      admin_user: ""
       additional_scopes: "profile"
       preferred_jws_algorithm: ""
       claim_identitying_user: ""
-
-# performance parameters
-# Values for bootstrap.conf
-bootstrap_conf:
-  jvmMemory: 32g
-  g1ReservePercent: 20
-  concGcThreads: 1
-  parallelGcThreads: 1
-  initiatingHeapOccupancyPercent: 35
+  authorization:
+    ldap:
+      admin_user_cn: ""
+      enforce_case_sensitivity: "false"
+      sync_interval: "30 mins"
+      page_size: ""
+      user_object_class: ""
+      user_search_scope: "ONE_LEVEL"
+      user_search_filter: ""
+      user_identity_attribute: "cn"
+      user_group_name_attribute: ""
+      user_referenced_group_attribute: ""
+      group_search_base: ""
+      group_object_class: ""
+      group_search_scope: "ONE_LEVEL"
+      group_search_filter: ""
+      group_name_attribute: "cn"
+      group_member_attribute: ""
+      group_referenced_user_attribute: ""
+    openid:
+      admin_user: ""
 
 # pvc details
 persistence:
@@ -152,9 +159,9 @@ zookeeper:
 # Setting this true would create a nifi-toolkit based ca server
 # The ca server will be used to generate self-signed certificates required setting up secured cluster
 ca:
-  enabled: false
   server: ""
   port: 9090
+  # TODO: token should be randomly generated randomly via secret
   token: sixteenCharacters
   admin:
     cn: admin
@@ -164,7 +171,6 @@ ca:
     tag: "1.11.4"
 
 certs:
-  enabled: false
   name: ""
   ca_certificate: root_ca_certificate
   admin_user:

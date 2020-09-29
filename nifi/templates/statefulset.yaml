@@ -50,7 +50,7 @@ spec:
             echo "waiting for zookeeper..."
             sleep 2
           done
-{{- if .Values.ca.enabled }}
+{{- if .Values.nifi.certificate_source.nifi_toolkit }}
       - name: cert
         imagePullPolicy: {{ .Values.ca.image.pullPolicy | quote }}
         image: "{{ .Values.ca.image.repository }}:{{ .Values.ca.image.tag }}"
@@ -72,8 +72,8 @@ spec:
           ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh client \
             -c "{{ template "ca.server" . }}" \
             -t {{ .Values.ca.token }} \
-{{- if .Values.nifi_properties.webProxyHost }}
-            --subjectAlternativeNames {{ .Values.nifi_properties.webProxyHost }} \
+{{- if .Values.nifi.properties.webProxyHost }}
+            --subjectAlternativeNames {{ .Values.nifi.properties.webProxyHost }} \
 {{- else }}
             --subjectAlternativeNames {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc \
 {{- end }}
@@ -87,8 +87,8 @@ spec:
           ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh client \
             -c "{{ template "ca.server" . }}" \
             -t {{ .Values.ca.token }} \
-{{- if .Values.nifi_properties.webProxyHost }}
-            --subjectAlternativeNames {{ .Values.nifi_properties.webProxyHost }} \
+{{- if .Values.nifi.properties.webProxyHost }}
+            --subjectAlternativeNames {{ .Values.nifi.properties.webProxyHost }} \
 {{- else }}
             --subjectAlternativeNames {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc \
 {{- end }}
@@ -103,7 +103,7 @@ spec:
         volumeMounts:
           - name: "config-data"
             mountPath: /data/config-data
-{{- else if .Values.nifi_properties.secured }}
+{{- else if .Values.nifi.properties.secured }}
       - name: cert
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
         # We do not use nifi-toolkit for anything, but the dependency softwares.
@@ -155,7 +155,7 @@ spec:
       - name: server
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-{{- if .Values.nifi_properties.authentication.ldap.manager_password }}
+{{- if .Values.nifi.authentication.ldap.manager_password }}
         envFrom:
         - secretRef:
             name: {{ template "nifi.fullname" . }}
@@ -181,7 +181,7 @@ spec:
           cat "${NIFI_HOME}/conf/authorizers.temp" > "${NIFI_HOME}/conf/authorizers.xml"
           # Create login-identity-providers.xml
           cat "${NIFI_HOME}/conf/login-identity-providers.temp" > "${NIFI_HOME}/conf/login-identity-providers.xml"
-{{- if .Values.nifi_properties.authentication.ldap.manager_password }}
+{{- if .Values.nifi.authentication.ldap.manager_password }}
           # Add manager DN Password for ldap access
           sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/authorizers.xml"
           sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
@@ -191,7 +191,7 @@ spec:
           update_property nifi.remote.input.host ${NIFI_HOST}
           update_property nifi.cluster.node.address ${NIFI_HOST}
           update_property nifi.cluster.flow.election.max.candidates {{ .Values.replicaCount }}
-{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi.properties.secured }}
           # Update nifi.properties for security properties
           update_property nifi.web.https.host ${NIFI_HOST}
           update_property nifi.security.keystore   ${NIFI_HOME}/config-data/certs/keystore.jks
@@ -199,8 +199,8 @@ spec:
           update_property nifi.security.keyPasswd          $(jq -r .keyPassword ${NIFI_HOME}/config-data/certs/config.json)
           update_property nifi.security.truststore   ${NIFI_HOME}/config-data/certs/truststore.jks
           update_property nifi.security.truststorePasswd   $(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/config.json)
-{{- if .Values.nifi_properties.default_network_interface }}
-          update_property nifi.web.https.network.interface.default {{ .Values.nifi_properties.default_network_interface }}
+{{- if .Values.nifi.properties.network_interface.default }}
+          update_property nifi.web.https.network.interface.default {{ .Values.nifi.properties.network_interface.default }}
 {{- end }}
 
           base_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0)
@@ -211,35 +211,35 @@ spec:
             # Download authorizations.xml from pod-0, it helps to get authorizations.xml required for adding up new nodes
             ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:/opt/nifi/nifi-current/config-data/conf/authorizations.xml /opt/nifi/nifi-current/config-data/conf/authorizations.xml
           fi
-{{- if .Values.nifi_properties.webProxyHost }}
+{{- if .Values.nifi.properties.webProxyHost }}
           # Update nifi.properties for web ui proxy hostname
-          update_property nifi.web.proxy.host {{ .Values.nifi_properties.webProxyHost }}
+          update_property nifi.web.proxy.host {{ .Values.nifi.properties.webProxyHost }}
 {{- else }}
           update_property nifi.web.proxy.host {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
 {{- end }}
 
 {{- else }}
           update_property nifi.web.http.host ${NIFI_HOST}
-{{- if .Values.nifi_properties.default_network_interface }}
-          update_property nifi.web.http.network.interface.default {{ .Values.nifi_properties.default_network_interface }}
+{{- if .Values.nifi.properties.network_interface.default }}
+          update_property nifi.web.http.network.interface.default {{ .Values.nifi.properties.network_interface.default }}
 {{- end }}
 {{- end }}
           exec bin/nifi.sh run
         resources:
 {{ toYaml .Values.resources | indent 10 }}
         ports:
-{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi.properties.secured }}
         # Setup https port as container port when cluster is secured
-        - containerPort: {{ .Values.nifi_properties.https_port }}
+        - containerPort: {{ .Values.nifi.properties.port.https }}
           name: https
           protocol: TCP
 {{- else }}
         # Setup http port as container port when cluster is unsecured
-        - containerPort: {{ .Values.nifi_properties.http_port }}
+        - containerPort: {{ .Values.nifi.properties.port.http }}
           name: http
           protocol: TCP
 {{- end }}
-        - containerPort: {{ .Values.nifi_properties.cluster_port }}
+        - containerPort: {{ .Values.nifi.properties.port.cluster }}
           name: cluster
           protocol: TCP
         env:
@@ -253,9 +253,9 @@ spec:
                 set -ex
                 # Setup preStop actions for cleaning up the pods when descaling
                 toolKitCli="${NIFI_TOOLKIT_HOME}/bin/cli.sh"
-{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi.properties.secured }}
                 webProtocol=https
-                webPort={{ .Values.nifi_properties.https_port }}
+                webPort={{ .Values.nifi.properties.port.https }}
                 trustStore="${NIFI_HOME}/config-data/certs/admin/truststore.jks"
                 trustStorePassword=$(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
                 trustStoreType=$(jq -r .trustStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
@@ -265,7 +265,7 @@ spec:
                 secureOptions="-ts $trustStore -tsp $trustStorePassword -tst $trustStoreType -ks $keyStore -ksp $keyStorePassword -kst $keyStoreType"
 {{- else }}
                 webProtocol=http
-                webPort={{ .Values.nifi_properties.http_port }}
+                webPort={{ .Values.nifi.properties.port.http }}
                 secureOptions=""
 {{- end }}
                 base_url_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
@@ -318,9 +318,9 @@ spec:
         readinessProbe:
           initialDelaySeconds: 60
           periodSeconds: 20
-{{- if or .Values.nifi_properties.authentication.openid.enabled .Values.nifi_properties.authentication.ldap.enabled }}
+{{- if or .Values.nifi.authentication.openid.enabled .Values.nifi.authentication.ldap.enabled }}
           tcpSocket:
-            port: {{ .Values.nifi_properties.https_port }}
+            port: {{ .Values.nifi.properties.port.https }}
 {{- else }}
           exec:
             command:
@@ -328,15 +328,15 @@ spec:
             - -c
             - |
               # Setting up the readiness probe
-{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi.properties.secured }}
               base_url_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
               curl -kv \
                 --cert ${NIFI_HOME}/config-data/certs/admin/crt.pem --cert-type PEM \
                 --key ${NIFI_HOME}/config-data/certs/admin/key.pem --key-type PEM \
-                https://$base_url_host:{{ .Values.nifi_properties.https_port }}/nifi-api/controller/cluster > /tmp/cluster.state
+                https://$base_url_host:{{ .Values.nifi.properties.port.https }}/nifi-api/controller/cluster > /tmp/cluster.state
 {{- else }}
               curl -kv \
-                http://$(hostname -f):{{ .Values.nifi_properties.http_port }}/nifi-api/controller/cluster > /tmp/cluster.state
+                http://$(hostname -f):{{ .Values.nifi.properties.port.http }}/nifi-api/controller/cluster > /tmp/cluster.state
 {{- end }}
               # Get the cluster status
               STATUS=$(jq -r ".cluster.nodes[] | select((.address==\"$(hostname -f)\") or .address==\"localhost\") | .status" /tmp/cluster.state)
@@ -351,13 +351,13 @@ spec:
           initialDelaySeconds: 90
           periodSeconds: 60
           tcpSocket:
-{{- if .Values.nifi_properties.secured }}
-            port: {{ .Values.nifi_properties.https_port }}
+{{- if .Values.nifi.properties.secured }}
+            port: {{ .Values.nifi.properties.port.https }}
 {{- else }}
-            port: {{ .Values.nifi_properties.http_port }}
+            port: {{ .Values.nifi.properties.port.http }}
 {{- end }}
         volumeMounts:
-{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi.properties.secured }}
           - name: "config-data"
             mountPath: /opt/nifi/nifi-current/config-data
 {{- end }}
@@ -417,7 +417,7 @@ spec:
           mountPath: /var/log
 {{- end }}
       volumes:
-{{- if and .Values.nifi_properties.secured ( ne .Values.ca.enabled true) }}
+{{- if and .Values.nifi.properties.secured ( ne .Values.nifi.certificate_source.nifi_toolkit true) }}
       - name : "certificates"
         secret:
           secretName: {{ template "certs.name" . }}
@@ -459,7 +459,7 @@ spec:
             - key: "login-identity-providers.xml"
               path: "login-identity-providers.temp"
   volumeClaimTemplates:
-{{- if .Values.nifi_properties.secured }}
+{{- if .Values.nifi.properties.secured }}
     - metadata:
         name: "config-data"
       spec:

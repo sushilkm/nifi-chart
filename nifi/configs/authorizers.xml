@@ -52,18 +52,18 @@
         <class>org.apache.nifi.authorization.FileUserGroupProvider</class>
         <property name="Users File">./conf/users.xml</property>
         <property name="Legacy Authorized Users File"></property>
-{{- if .Values.nifi_properties.authentication.openid.admin_user }}
-        <property name="Initial User Identity openid_admin">{{ .Values.nifi_properties.authentication.openid.admin_user }}</property>
-{{- else if .Values.certs.admin_user.enabled }}
+{{- if .Values.nifi.authorization.openid.admin_user }}
+        <property name="Initial User Identity openid_admin">{{ .Values.nifi.authorization.openid.admin_user }}</property>
+{{- else if .Values.nifi.certificate_source.user_provided }}
         <property name="Initial User Identity admin">{{ .Values.certs.admin_user.cn }}</property>
-{{- else if .Values.ca.enabled }}
+{{- else if .Values.nifi.certificate_source.nifi_toolkit }}
         <property name="Initial User Identity admin">CN={{ .Values.ca.admin.cn }}, OU=NIFI</property>
 {{- end }}
-{{- if .Values.certs.admin_user.enabled }}
+{{- if .Values.nifi.certificate_source.user_provided }}
 {{- range $i := until $replicas }}
         <property name="Initial User Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local</property>
 {{- end }}
-{{- else if .Values.ca.enabled }}
+{{- else if .Values.nifi.certificate_source.nifi_toolkit }}
 {{- range $i := until $replicas }}
         <property name="Initial User Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local, OU=NIFI</property>
 {{- end }}
@@ -142,11 +142,11 @@
         NOTE: Any identity mapping rules specified in nifi.properties will also be applied to the user identities.
             Group names are not mapped.
     -->
-{{if .Values.nifi_properties.authentication.ldap.enabled}}
+{{if .Values.nifi.authentication.ldap.enabled}}
     <userGroupProvider>
         <identifier>ldap-user-group-provider</identifier>
         <class>org.apache.nifi.ldap.tenants.LdapUserGroupProvider</class>
-        <property name="Authentication Strategy">{{ .Values.nifi_properties.authentication.ldap.auth_strategy }}</property>
+        <property name="Authentication Strategy">{{ .Values.nifi.authentication.ldap.authentication_strategy }}</property>
 
     <!-- TODO: Enable LDAP with TLS. This is 1 of 2.
         <property name="TLS - Keystore"></property>
@@ -160,33 +160,31 @@
         <property name="TLS - Shutdown Gracefully"></property>
     To enable the LDAP with TLS remove 2 lines. This is 2 of 2. -->
 
-        <property name="Manager DN">{{ .Values.nifi_properties.authentication.ldap.manager_dn }}</property>
+        <property name="Manager DN">{{ .Values.nifi.authentication.ldap.manager_dn }}</property>
         <property name="Manager Password">SECRET_MANAGER_PASSWORD</property>
+        <property name="Url">{{ .Values.nifi.authentication.ldap.url }}</property>
+        <property name="Connect Timeout">{{ .Values.nifi.authentication.ldap.connect_timeout }}</property>
+        <property name="Read Timeout">{{ .Values.nifi.authentication.ldap.read_timeout }}</property>
+        <property name="Referral Strategy">{{ .Values.nifi.authentication.ldap.referral_strategy }}</property>
+        <property name="User Search Base">{{ .Values.nifi.authentication.ldap.user_search_base }}</property>
 
-        <property name="Referral Strategy">{{ .Values.nifi_properties.authentication.ldap.referral_strategy }}</property>
-        <property name="Connect Timeout">{{ .Values.nifi_properties.authentication.ldap.connect_timeout }}</property>
-        <property name="Read Timeout">{{ .Values.nifi_properties.authentication.ldap.read_timeout }}</property>
+        <property name="User Search Filter">{{ .Values.nifi.authorization.ldap.user_search_filter }}</property>
+        <property name="User Object Class">{{ .Values.nifi.authorization.ldap.user_object_class }}</property>
+        <property name="User Search Scope">{{ .Values.nifi.authorization.ldap.user_search_scope }}</property>
+        <property name="Page Size">{{ .Values.nifi.authorization.ldap.page_size }}</property>
+        <property name="Sync Interval">{{ .Values.nifi.authorization.ldap.sync_interval }}</property>
+        <property name="Group Membership - Enforce Case Sensitivity">{{ .Values.nifi.authorization.ldap.enforce_case_sensitivity }}</property>
+        <property name="User Identity Attribute">{{ .Values.nifi.authorization.ldap.user_identity_attribute }}</property>
+        <property name="User Group Name Attribute">{{ .Values.nifi.authorization.ldap.user_group_name_attribute }}</property>
+        <property name="User Group Name Attribute - Referenced Group Attribute">{{ .Values.nifi.authorization.ldap.user_referenced_group_attribute }}</property>
 
-        <property name="Url">{{ .Values.nifi_properties.authentication.ldap.url }}</property>
-        <property name="Page Size">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_page_size }}</property>
-        <property name="Sync Interval">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_sync_interval }}</property>
-        <property name="Group Membership - Enforce Case Sensitivity">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_enforce_case_sensitivity }}</property>
-
-        <property name="User Search Base">{{ .Values.nifi_properties.authentication.ldap.user_search_base }}</property>
-        <property name="User Object Class">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_user_object_class }}</property>
-        <property name="User Search Scope">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_user_search_scope }}</property>
-        <property name="User Search Filter">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_user_search_filter }}</property>
-        <property name="User Identity Attribute">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_user_identity_attribute }}</property>
-        <property name="User Group Name Attribute">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_user_group_name_attribute }}</property>
-        <property name="User Group Name Attribute - Referenced Group Attribute">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_user_referenced_group_attribute }}</property>
-
-        <property name="Group Search Base">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_search_base }}</property>
-        <property name="Group Object Class">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_object_class }}</property>
-        <property name="Group Search Scope">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_search_scope }}</property>
-        <property name="Group Search Filter">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_search_filter }}</property>
-        <property name="Group Name Attribute">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_name_attribute }}</property>
-        <property name="Group Member Attribute">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_member_attribute }}</property>
-        <property name="Group Member Attribute - Referenced User Attribute">{{ .Values.nifi_properties.authentication.ldap.authorizers_provider_group_referenced_user_attribute }}</property>
+        <property name="Group Search Base">{{ .Values.nifi.authorization.ldap.group_search_base }}</property>
+        <property name="Group Object Class">{{ .Values.nifi.authorization.ldap.group_object_class }}</property>
+        <property name="Group Search Scope">{{ .Values.nifi.authorization.ldap.group_search_scope }}</property>
+        <property name="Group Search Filter">{{ .Values.nifi.authorization.ldap.group_search_filter }}</property>
+        <property name="Group Name Attribute">{{ .Values.nifi.authorization.ldap.group_name_attribute }}</property>
+        <property name="Group Member Attribute">{{ .Values.nifi.authorization.ldap.group_member_attribute }}</property>
+        <property name="Group Member Attribute - Referenced User Attribute">{{ .Values.nifi.authorization.ldap.group_referenced_user_attribute }}</property>
     </userGroupProvider>
 {{end}}
 
@@ -250,7 +248,7 @@
         <identifier>composite-configurable-user-group-provider</identifier>
         <class>org.apache.nifi.authorization.CompositeConfigurableUserGroupProvider</class>
         <property name="Configurable User Group Provider">file-user-group-provider</property>
-{{if .Values.nifi_properties.authentication.ldap.enabled}}
+{{if .Values.nifi.authentication.ldap.enabled}}
         <property name="User Group Provider ldap">ldap-user-group-provider</property>
 {{end}}
     </userGroupProvider>
@@ -298,21 +296,21 @@
         <property name="User Group Provider">composite-configurable-user-group-provider</property>
         <property name="Authorizations File">./config-data/conf/authorizations.xml</property>
         <property name="Legacy Authorized Users File"></property>
-{{- if .Values.nifi_properties.authentication.openid.admin_user }}
-        <property name="Initial Admin Identity">{{ .Values.nifi_properties.authentication.openid.admin_user }}</property>
-{{- else if .Values.nifi_properties.authentication.ldap.admin_user_cn }}
-        <property name="Initial Admin Identity">{{ .Values.nifi_properties.authentication.ldap.admin_user_cn }}</property>
-{{- else if .Values.certs.admin_user.enabled }}
+{{- if .Values.nifi.authorization.openid.admin_user }}
+        <property name="Initial Admin Identity">{{ .Values.nifi.authorization.openid.admin_user }}</property>
+{{- else if .Values.nifi.authorization.ldap.admin_user_cn }}
+        <property name="Initial Admin Identity">{{ .Values.nifi.authorization.ldap.admin_user_cn }}</property>
+{{- else if .Values.nifi.certificate_source.user_provided }}
         <property name="Initial Admin Identity">{{ .Values.certs.admin_user.cn }}</property>
-{{- else if .Values.ca.enabled }}
+{{- else if .Values.nifi.certificate_source.nifi_toolkit }}
         <property name="Initial Admin Identity">CN={{ .Values.ca.admin.cn }}, OU=NIFI</property>
 {{- end }}
         <property name="Legacy Authorized Users File"></property>
-{{- if .Values.certs.admin_user.enabled }}
+{{- if .Values.nifi.certificate_source.user_provided }}
 {{- range $i := until $replicas }}
         <property name="Node Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local</property>
 {{- end }}
-{{- else if .Values.ca.enabled }}
+{{- else if .Values.nifi.certificate_source.nifi_toolkit }}
 {{- range $i := until $replicas }}
         <property name="Node Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local, OU=NIFI</property>
 {{- end }}

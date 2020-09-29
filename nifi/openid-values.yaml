@@ -1,15 +1,17 @@
-nifi_properties:
-  secured: true
+nifi:
+  properties:
+    secured: true
+  certificate_source:
+    nifi_toolkit: true
   authentication:
     openid:
       enabled: true
       discovery_url: ""
       client_id: ""
       client_secret: ""
-      admin_user: ""
       additional_scopes: "profile"
       preferred_jws_algorithm: ""
       claim_identitying_user: ""
-
-ca:
-  enabled: true
+  authorization:
+    openid:
+      admin_user: ""

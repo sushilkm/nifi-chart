@@ -8,18 +8,18 @@ To learn more about the release, try:
 {{- if or .Values.minikube (ne .Values.service.type "LoadBalancer") }}
 
 Use port-forward to access the service, you can skip sudo if using service port >1024
-{{- if .Values.nifi_properties.secured }}
-  sudo kubectl -n {{ .Release.Namespace }} port-forward svc/{{ template "nifi.fullname" . }} {{ .Values.service.https_port }}:{{ .Values.service.https_port }} --address 0.0.0.0
+{{- if .Values.nifi.properties.secured }}
+  sudo kubectl -n {{ .Release.Namespace }} port-forward svc/{{ template "nifi.fullname" . }} {{ .Values.service.port.https }}:{{ .Values.service.port.https }} --address 0.0.0.0
 {{- else }}
-  sudo kubectl -n {{ .Release.Namespace }} port-forward svc/{{ template "nifi.fullname" . }} {{ .Values.service.http_port }}:{{ .Values.service.http_port }} --address 0.0.0.0
+  sudo kubectl -n {{ .Release.Namespace }} port-forward svc/{{ template "nifi.fullname" . }} {{ .Values.service.port.http }}:{{ .Values.service.port.http }} --address 0.0.0.0
 {{- end }}
 {{- end }}
 
 {{- if .Values.minikube }}
 
 Add following entry to the /etc/hosts
-{{- if .Values.nifi_properties.webProxyHost }}
-127.0.0.1 {{ .Values.nifi_properties.webProxyHost }}
+{{- if .Values.nifi.properties.webProxyHost }}
+127.0.0.1 {{ .Values.nifi.properties.webProxyHost }}
 {{- else }}
 127.0.0.1 {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
 {{- end }}
@@ -32,30 +32,30 @@ kubectl get svc {{ template "nifi.fullname" . }} -n {{ .Release.Namespace }} -o 
 {{- end }}
 
 Add following entry to the /etc/hosts using IP_ADDRESS found by above command
-{{- if .Values.nifi_properties.webProxyHost }}
-IP_ADDRESS {{ .Values.nifi_properties.webProxyHost }}
+{{- if .Values.nifi.properties.webProxyHost }}
+IP_ADDRESS {{ .Values.nifi.properties.webProxyHost }}
 {{- else }}
 IP_ADDRESS {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
 {{- end }}
 {{- end }}
 
 Cluster is accessible at
-{{- if .Values.nifi_properties.secured }}
-{{- if .Values.nifi_properties.webProxyHost }}
-https://{{ .Values.nifi_properties.webProxyHost }}:{{ .Values.service.https_port }}/nifi
+{{- if .Values.nifi.properties.secured }}
+{{- if .Values.nifi.properties.webProxyHost }}
+https://{{ .Values.nifi.properties.webProxyHost }}:{{ .Values.service.port.https }}/nifi
 {{- else }}
-https://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.https_port }}/nifi
+https://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port.https }}/nifi
 {{- end }}
 {{- else }}
-{{- if .Values.nifi_properties.webProxyHost }}
-http://{{ .Values.nifi_properties.webProxyHost }}:{{ .Values.service.http_port }}/nifi
+{{- if .Values.nifi.properties.webProxyHost }}
+http://{{ .Values.nifi.properties.webProxyHost }}:{{ .Values.service.port.http }}/nifi
 {{- else }}
-http://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.http_port }}/nifi
+http://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port.http }}/nifi
 {{- end }}
 {{- end }}
 
-{{- if .Values.nifi_properties.secured }}
-{{- if and (ne .Values.nifi_properties.authentication.openid.enabled true) (ne .Values.nifi_properties.authentication.ldap.enabled true) }}
+{{- if .Values.nifi.properties.secured }}
+{{- if and (ne .Values.nifi.authentication.openid.enabled true) (ne .Values.nifi.authentication.ldap.enabled true) }}
 
 Get the certificate and certificate-config from the pod as follows:
   kubectl cp {{ .Release.Namespace }}/{{ template "nifi.fullname" . }}-0:/opt/nifi/nifi-current/config-data/certs/admin/keystore.pkcs12 keystore.pkcs12

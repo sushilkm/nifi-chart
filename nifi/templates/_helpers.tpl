@@ -46,7 +46,7 @@ Create zookeeper.server
 Create ca.server
 */}}
 {{- define "ca.server" }}
-{{- if .Values.ca.enabled -}}
+{{- if .Values.nifi.certificate_source.nifi_toolkit -}}
 {{- printf "%s-ca" .Release.Name }}
 {{- else -}}
 {{- printf "%s" .Values.ca.server }}

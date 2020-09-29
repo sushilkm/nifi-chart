@@ -9,10 +9,11 @@ persistence:
   dataPartition3Size: 5Gi
   logPartitionSize: 500Mi
   
-# performance parameters
-# Values for bootstrap.conf
-bootstrap_conf:
-  jvmMemory: 1g
+nifi:
+  # performance parameters
+  # Values for bootstrap.conf
+  bootstrap_conf:
+    jvmMemory: 1g
 
 # Configure resource requests for nifi pods
 resources:

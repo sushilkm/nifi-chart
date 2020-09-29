@@ -1,8 +1,10 @@
-nifi_properties:
-  secured: true
+nifi:
+  properties:
+    secured: true
+  certificate_source:
+    user_provided: true
 
 certs:
-  enabled: true
   # All certificates need to be copied to nifi/certficates
   # Copy your certficates and private keys and update the filenames accordingly
   # If you have more or less nodes update the list "node_certs" accordingly
