@@ -210,6 +210,7 @@ spec:
             chmod +x ${NIFI_HOME}/bin/kubectl
             # Download authorizations.xml from pod-0, it helps to get authorizations.xml required for adding up new nodes
             ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:/opt/nifi/nifi-current/config-data/conf/authorizations.xml /opt/nifi/nifi-current/config-data/conf/authorizations.xml
+            ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:/opt/nifi/nifi-current/config-data/conf/users.xml /opt/nifi/nifi-current/config-data/conf/users.xml
           fi
 {{- if .Values.nifi.properties.webProxyHost }}
           # Update nifi.properties for web ui proxy hostname
