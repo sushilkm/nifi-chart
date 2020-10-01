@@ -122,7 +122,7 @@ spec:
           export store_password=$(openssl rand -base64 32)
           jq -n \
             --arg password "$store_password" \
-            '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password}' \
+            '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password, trustStoreType:"JKS", keyStoreType:"JKS"}' \
             > config.json
           keytool -import \
             -file /opt/certs/ca_certificate \
@@ -143,8 +143,18 @@ spec:
             -srcstorepass $store_password \
             -noprompt
           cd admin
+          jq -n \
+            --arg password "$store_password" \
+            '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password, trustStoreType:"JKS", keyStoreType:"PKCS12"}' \
+            > config.json
+          cp /data/config-data/certs/truststore.jks ./truststore.jks
           cp /opt/certs/admin_certificate ./crt.pem
           cp /opt/certs/admin_private_key ./key.pem
+          openssl pkcs12 -export \
+            -in /opt/certs/admin_certificate \
+            -inkey /opt/certs/admin_private_key \
+            -out keystore.pkcs12 \
+            -password pass:$store_password
         volumeMounts:
           - name: "config-data"
             mountPath: /data/config-data
