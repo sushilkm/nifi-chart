@@ -12,8 +12,9 @@ persistence:
 nifi:
   # performance parameters
   # Values for bootstrap.conf
-  bootstrap_conf:
-    jvmMemory: 1g
+  bootstrapConf:
+    jvmMinMemory: 1g
+    jvmMaxMemory: 1g
 
 # Configure resource requests for nifi pods
 resources:

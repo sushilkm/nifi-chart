@@ -1,26 +1,24 @@
 nifi:
   properties:
     secured: true
-  certificate_source:
-    user_provided: true
+  certificateSource:
+    userProvided: true
 
 certs:
   # All certificates need to be copied to nifi/certficates
   # Copy your certficates and private keys and update the filenames accordingly
-  # If you have more or less nodes update the list "node_certs" accordingly
-  ca_certificate: rootCA.crt
-  admin_user:
-    enabled: true
-    cn: "CN=admin"
-    private_key: admin.key
+  # If you have more or less nodes update the list "nodeCerts" accordingly
+  caCertificate: rootCA.crt
+  adminUser:
+    privateKey: admin.key
     certificate: admin.crt
-  node_certs:
+  nodeCerts:
     - node: 1
-      private_key: node1.key
+      privateKey: node1.key
       certificate: node1.crt
     - node: 2
-      private_key: node2.key
+      privateKey: node2.key
       certificate: node2.crt
     - node: 3
-      private_key: node3.key
+      privateKey: node3.key
       certificate: node3.crt

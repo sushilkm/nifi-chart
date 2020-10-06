@@ -20,7 +20,4 @@ resources:
 
 app_port: 9090
 
-admin:
-  cn: admin
-
 token: sixteenCharacters

@@ -50,7 +50,7 @@ spec:
             echo "waiting for zookeeper..."
             sleep 2
           done
-{{- if .Values.nifi.certificate_source.nifi_toolkit }}
+{{- if .Values.nifi.certificateSource.nifiToolkit }}
       - name: cert
         imagePullPolicy: {{ .Values.ca.image.pullPolicy | quote }}
         image: "{{ .Values.ca.image.repository }}:{{ .Values.ca.image.tag }}"
@@ -69,6 +69,7 @@ spec:
           mkdir certs
           cd certs
           # Generate certificate for server with webProxyHost or service name as alternate names to access nifi web ui
+          set -e
           ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh client \
             -c "{{ template "ca.server" . }}" \
             -t {{ .Values.ca.token }} \
@@ -80,6 +81,7 @@ spec:
             -D "CN=$(hostname -f), OU=NIFI" \
             -p {{ .Values.ca.port }}
 
+{{- if .Values.nifi.authorization.adminUser.enabled }}
           # Generate client certificate for browser with webProxyHost or service name as alternate names to access nifi web ui
           mkdir -p /data/config-data/certs/admin
           cd /data/config-data/certs/admin
@@ -93,13 +95,14 @@ spec:
             --subjectAlternativeNames {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc \
 {{- end }}
             -p {{ .Values.ca.port }} \
-            -D "CN={{ .Values.ca.admin.cn }}, OU=NIFI" \
+            -D "{{ .Values.nifi.authorization.adminUser.name }}, OU=NIFI" \
             -T PKCS12
 
           export PASS=$(jq -r .keyStorePassword config.json)
 
           openssl pkcs12 -in "keystore.pkcs12" -out "key.pem" -nocerts -nodes -password "env:PASS"
           openssl pkcs12 -in "keystore.pkcs12" -out "crt.pem" -clcerts -nokeys -password "env:PASS"
+{{- end }}
         volumeMounts:
           - name: "config-data"
             mountPath: /data/config-data
@@ -115,8 +118,9 @@ spec:
         - |
           cd /data/config-data
           rm -rf certs
-          mkdir -p certs/admin
+          mkdir certs
           cd certs
+          set -e
           export node_number_from_hostname=$(hostname | rev | awk -F "-" '{print $1}' | rev)
           export node_number=$((node_number_from_hostname+1))
           export store_password=$(openssl rand -base64 32)
@@ -125,7 +129,7 @@ spec:
             '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password, trustStoreType:"JKS", keyStoreType:"JKS"}' \
             > config.json
           keytool -import \
-            -file /opt/certs/ca_certificate \
+            -file /opt/certs/caCertificate \
             -keystore truststore.jks \
             -storepass $store_password \
             -noprompt
@@ -142,7 +146,9 @@ spec:
             -storepass $store_password \
             -srcstorepass $store_password \
             -noprompt
-          cd admin
+{{- if .Values.nifi.authorization.adminUser.enabled }}
+          mkdir -p /data/config-data/certs/admin
+          cd /data/config-data/certs/admin
           jq -n \
             --arg password "$store_password" \
             '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password, trustStoreType:"JKS", keyStoreType:"PKCS12"}' \
@@ -155,6 +161,7 @@ spec:
             -inkey /opt/certs/admin_private_key \
             -out keystore.pkcs12 \
             -password pass:$store_password
+{{- end }}
         volumeMounts:
           - name: "config-data"
             mountPath: /data/config-data
@@ -165,7 +172,7 @@ spec:
       - name: server
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-{{- if .Values.nifi.authentication.ldap.manager_password }}
+{{- if .Values.nifi.authentication.ldap.managerPassword }}
         envFrom:
         - secretRef:
             name: {{ template "nifi.fullname" . }}
@@ -191,7 +198,7 @@ spec:
           cat "${NIFI_HOME}/conf/authorizers.temp" > "${NIFI_HOME}/conf/authorizers.xml"
           # Create login-identity-providers.xml
           cat "${NIFI_HOME}/conf/login-identity-providers.temp" > "${NIFI_HOME}/conf/login-identity-providers.xml"
-{{- if .Values.nifi.authentication.ldap.manager_password }}
+{{- if .Values.nifi.authentication.ldap.managerPassword }}
           # Add manager DN Password for ldap access
           sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/authorizers.xml"
           sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
@@ -209,8 +216,8 @@ spec:
           update_property nifi.security.keyPasswd          $(jq -r .keyPassword ${NIFI_HOME}/config-data/certs/config.json)
           update_property nifi.security.truststore   ${NIFI_HOME}/config-data/certs/truststore.jks
           update_property nifi.security.truststorePasswd   $(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/config.json)
-{{- if .Values.nifi.properties.network_interface.default }}
-          update_property nifi.web.https.network.interface.default {{ .Values.nifi.properties.network_interface.default }}
+{{- if .Values.nifi.properties.networkInterface.default }}
+          update_property nifi.web.https.network.interface.default {{ .Values.nifi.properties.networkInterface.default }}
 {{- end }}
 
           base_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0)
@@ -231,8 +238,8 @@ spec:
 
 {{- else }}
           update_property nifi.web.http.host ${NIFI_HOST}
-{{- if .Values.nifi.properties.network_interface.default }}
-          update_property nifi.web.http.network.interface.default {{ .Values.nifi.properties.network_interface.default }}
+{{- if .Values.nifi.properties.networkInterface.default }}
+          update_property nifi.web.http.network.interface.default {{ .Values.nifi.properties.networkInterface.default }}
 {{- end }}
 {{- end }}
           exec bin/nifi.sh run
@@ -262,6 +269,11 @@ spec:
               - -c
               - |
                 set -ex
+{{- if and .Values.nifi.properties.secured (ne .Values.nifi.authorization.adminUser.enabled true) }}
+                # Since user has disabled the adminUser, so we cannot run toolkit commands.
+                # when .Values.nifi.authorization.adminUser.enabled is false we will not perform disconnect/offload operations
+                $NIFI_HOME/bin/nifi.sh stop
+{{- else }}
                 # Setup preStop actions for cleaning up the pods when descaling
                 toolKitCli="${NIFI_TOOLKIT_HOME}/bin/cli.sh"
 {{- if .Values.nifi.properties.secured }}
@@ -321,6 +333,7 @@ spec:
                   sleep 10
                 fi
                 $NIFI_HOME/bin/nifi.sh stop
+{{- end }}
 {{- if .Values.postStart }}
           postStart:
             exec:
@@ -329,7 +342,7 @@ spec:
         readinessProbe:
           initialDelaySeconds: 60
           periodSeconds: 20
-{{- if or .Values.nifi.authentication.openid.enabled .Values.nifi.authentication.ldap.enabled }}
+{{- if and .Values.nifi.properties.secured (ne .Values.nifi.authorization.adminUser.enabled true) }}
           tcpSocket:
             port: {{ .Values.nifi.properties.port.https }}
 {{- else }}
@@ -428,7 +441,7 @@ spec:
           mountPath: /var/log
 {{- end }}
       volumes:
-{{- if and .Values.nifi.properties.secured ( ne .Values.nifi.certificate_source.nifi_toolkit true) }}
+{{- if and .Values.nifi.properties.secured ( ne .Values.nifi.certificateSource.nifiToolkit true) }}
       - name : "certificates"
         secret:
           secretName: {{ template "certs.name" . }}

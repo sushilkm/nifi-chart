@@ -1,5 +1,5 @@
 nifi:
   properties:
     secured: true
-  certificate_source:
-    nifi_toolkit: true
+  certificateSource:
+    nifiToolkit: true

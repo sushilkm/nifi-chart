@@ -34,78 +34,79 @@ service:
 
 nifi:
   # Values for bootstrap.conf
-  bootstrap_conf:
-    jvmMemory: 32g
+  bootstrapConf:
+    jvmMinMemory: 32g
+    jvmMaxMemory: 32g
     g1ReservePercent: 20
     concGcThreads: 1
     parallelGcThreads: 1
     initiatingHeapOccupancyPercent: 35
   # Values for nifi.properties
   properties:
-    network_interface:
+    networkInterface:
       default: eth0
       loopback: lo
-      enable_service_on_loopback: true
+      enableServiceOnLoopback: true
     port:
       http: 8080
       https: 8443
       cluster: 8081
-    provenance_implementation: org.apache.nifi.provenance.VolatileProvenanceRepository
+    provenanceImplementation: org.apache.nifi.provenance.VolatileProvenanceRepository
     # performance parameters
-    protocol_threads: 5
-    max_protocol_threads: 10
-    cluster_timeout: 60
-    zk_timeout: 15
+    protocolThreads: 5
+    maxProtocolThreads: 10
+    clusterTimeout: 60
+    zkTimeout: 15
     webProxyHost: ""
     # security parameters
     secured: false
-  certificate_source:
-    nifi_toolkit: false
-    user_provided: false
+  certificateSource:
+    nifiToolkit: false
+    userProvided: false
   # authentication parameters
   authentication:
     ldap:
       enabled: false
-      authentication_strategy: "SIMPLE"
-      referral_strategy: "FOLLOW"
-      identity_strategy: "USE_USERNAME"
+      authenticationStrategy: "SIMPLE"
+      referralStrategy: "FOLLOW"
+      identityStrategy: "USE_USERNAME"
       url: ""
-      manager_dn: ""
-      manager_password: ""
-      connect_timeout: "10 secs"
-      read_timeout: "10 secs"
-      user_search_base: ""
-      user_search_filter: ""
-      expiration_period: "12 hours"
+      managerDn: ""
+      managerPassword: ""
+      connectTimeout: "10 secs"
+      readTimeout: "10 secs"
+      userSearchBase: ""
+      userSearchFilter: ""
+      expirationPeriod: "12 hours"
     openid:
       enabled: false
-      discovery_url: ""
-      client_id: ""
-      client_secret: ""
-      additional_scopes: "profile"
-      preferred_jws_algorithm: ""
-      claim_identitying_user: ""
+      discoveryUrl: ""
+      clientId: ""
+      clientSecret: ""
+      additionalScopes: "profile"
+      preferredJwsAlgorithm: ""
+      claimIdentityingUser: ""
   authorization:
+    adminUser:
+      enabled: true
+      name: "CN=admin"
     ldap:
-      admin_user_cn: ""
-      enforce_case_sensitivity: "false"
-      sync_interval: "30 mins"
-      page_size: ""
-      user_object_class: ""
-      user_search_scope: "ONE_LEVEL"
-      user_search_filter: ""
-      user_identity_attribute: "cn"
-      user_group_name_attribute: ""
-      user_referenced_group_attribute: ""
-      group_search_base: ""
-      group_object_class: ""
-      group_search_scope: "ONE_LEVEL"
-      group_search_filter: ""
-      group_name_attribute: "cn"
-      group_member_attribute: ""
-      group_referenced_user_attribute: ""
-    openid:
-      admin_user: ""
+      enforceCaseSensitivity: "false"
+      syncInterval: "30 mins"
+      pageSize: ""
+      userObjectClass: ""
+      userSearchScope: "ONE_LEVEL"
+      userSearchFilter: ""
+      userIdentityAttribute: "cn"
+      userGroupNameAttribute: ""
+      userReferencedGroupAttribute: ""
+      groupSearchBase: ""
+      groupObjectClass: ""
+      groupSearchScope: "ONE_LEVEL"
+      groupSearchFilter: ""
+      groupNameAttribute: "cn"
+      groupMemberAttribute: ""
+      groupReferencedUserAttribute: ""
 
 # pvc details
 persistence:
@@ -163,8 +164,6 @@ ca:
   port: 9090
   # TODO: token should be randomly generated randomly via secret
   token: sixteenCharacters
-  admin:
-    cn: admin
   image:
     repository: apache/nifi-toolkit
     pullPolicy: IfNotPresent
@@ -172,19 +171,18 @@ ca:
 
 certs:
   name: ""
-  ca_certificate: root_ca_certificate
-  admin_user:
+  caCertificate: root_ca_certificate
+  adminUser:
     enabled: true
-    cn: "CN=admin"
-    private_key: admin_private_key
+    privateKey: admin_private_key
     certificate: admin_certificate
-  node_certs:
+  nodeCerts:
     - node: 1
-      private_key: node1_private_key
+      privateKey: node1_private_key
       certificate: node1_certificate
     - node: 2
-      private_key: node2_private_key
+      privateKey: node2_private_key
       certificate: node2_certificate
     - node: 3
-      private_key: node3_private_key
+      privateKey: node3_private_key
       certificate: node3_certificate
