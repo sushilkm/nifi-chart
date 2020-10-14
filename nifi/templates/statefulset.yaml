@@ -182,6 +182,32 @@ spec:
         - -ce
         - |
           set -ex
+          # Creating a script to call nifi-toolkit
+          cat > call_nifi_toolkit.sh << EOF
+          #!/usr/bin/env bash
+          set -e
+
+          input_command=\$*
+          toolKitCli="${NIFI_TOOLKIT_HOME}/bin/cli.sh"
+{{- if .Values.nifi.properties.secured }}
+          webProtocol=https
+          webPort={{ .Values.nifi.properties.port.https }}
+          trustStore="${NIFI_HOME}/config-data/certs/admin/truststore.jks"
+          trustStorePassword=$(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
+          trustStoreType=$(jq -r .trustStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
+          keyStore="${NIFI_HOME}/config-data/certs/admin/keystore.pkcs12"
+          keyStorePassword=$(jq -r .keyStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
+          keyStoreType=$(jq -r .keyStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
+          secureOptions="-ts \$trustStore -tsp \$trustStorePassword -tst \$trustStoreType -ks \$keyStore -ksp \$keyStorePassword -kst \$keyStoreType"
+{{- else }}
+          webProtocol=http
+          webPort={{ .Values.nifi.properties.port.http }}
+          secureOptions=""
+{{- end }}
+          base_url_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
+          \$toolKitCli \$input_command -u \$webProtocol://\$base_url_host:\$webPort -ot json \$secureOptions
+          EOF
+          chmod 700 call_nifi_toolkit.sh
           update_property () {
             target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
             echo "updating ${1} in ${target_file}"
@@ -221,8 +247,24 @@ spec:
 {{- if .Values.nifi.properties.networkInterface.default }}
           update_property nifi.web.https.network.interface.default {{ .Values.nifi.properties.networkInterface.default }}
 {{- end }}
-
-          base_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0)
+          # Adding new node from scale-up operation to "/proxy" policy
+          # If current pod number is greater than what it was in initial cluster, then add grant it access to /proxy.
+          # This is needed for this NiFi node to proxy user requests.
+          current_node=$(hostname | rev | awk -F "-" '{print $1}' | rev)
+          if [ "$current_node" -ge {{ .Values.replicaCount | quote }} ]; then
+            cluster_info=$(./call_nifi_toolkit.sh nifi get-nodes)
+            node_status=$(echo $cluster_info | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .status")
+            if [[ "$node_status" == "DISCONNECTED" ]]; then
+              # Need to cleanup the node, the deleted node is added back to cluster as disconnected node
+              # https://issues.apache.org/jira/browse/NIFI-7003
+              # The bug is fixed in NiFi version >= 1.12.0
+              node_id=$(echo $cluster_info | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .nodeId")
+              ./call_nifi_toolkit.sh nifi delete-node --nifiNodeId $node_id
+            fi
+            ./call_nifi_toolkit.sh nifi create-user -un CN=$(hostname -f)
+            ./call_nifi_toolkit.sh nifi update-policy -por "/proxy" -poa write -unl CN=$(hostname -f)
+          fi
+          base_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0)
           if [[ `hostname` != "$base_host" ]]; then
             # Download kubectl, this can be later backed into the docker image
             curl -Lo ${NIFI_HOME}/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
@@ -277,46 +319,30 @@ spec:
                 $NIFI_HOME/bin/nifi.sh stop
 {{- else }}
                 # Setup preStop actions for cleaning up the pods when descaling
-                toolKitCli="${NIFI_TOOLKIT_HOME}/bin/cli.sh"
-{{- if .Values.nifi.properties.secured }}
-                webProtocol=https
-                webPort={{ .Values.nifi.properties.port.https }}
-                trustStore="${NIFI_HOME}/config-data/certs/admin/truststore.jks"
-                trustStorePassword=$(jq -r .trustStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
-                trustStoreType=$(jq -r .trustStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
-                keyStore="${NIFI_HOME}/config-data/certs/admin/keystore.pkcs12"
-                keyStorePassword=$(jq -r .keyStorePassword ${NIFI_HOME}/config-data/certs/admin/config.json)
-                keyStoreType=$(jq -r .keyStoreType ${NIFI_HOME}/config-data/certs/admin/config.json)
-                secureOptions="-ts $trustStore -tsp $trustStorePassword -tst $trustStoreType -ks $keyStore -ksp $keyStorePassword -kst $keyStoreType"
-{{- else }}
-                webProtocol=http
-                webPort={{ .Values.nifi.properties.port.http }}
-                secureOptions=""
-{{- end }}
-                base_url_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
-                cluster_info=$($toolKitCli nifi get-nodes -u $webProtocol://$base_url_host:$webPort -ot json $secureOptions)
+                base_url_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
+                cluster_info=$(./call_nifi_toolkit.sh nifi get-nodes)
                 if [[ "$base_url_host" != `hostname -f` ]]; then
                   node_id=$(echo $cluster_info | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .nodeId")
                   echo $base_url_host
                   echo $node_id
                   echo "Disconnecting the node...."
                   # Disconnect the node from cluster
-                  $toolKitCli nifi disconnect-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                  ./call_nifi_toolkit.sh nifi disconnect-node --nifiNodeId $node_id
                   echo
                   sleep 2
                   echo "Offloading the node...."
                   # Offload the disconnected node
-                  $toolKitCli nifi offload-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                  ./call_nifi_toolkit.sh nifi offload-node --nifiNodeId $node_id
                   echo
                   time_to_sleep=5
                   number_of_checks=50
                   checked=0
-                  node_status=$($toolKitCli nifi get-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort -ot json $secureOptions | jq -r '.node.status')
+                  node_status=$(./call_nifi_toolkit.sh nifi get-node --nifiNodeId $node_id -ot json | jq -r '.node.status')
                   # Lets check whether node has been offloaded or not
                   while [[ "$node_status" != "OFFLOADED" ]]; do
                     (( checked++ ))
                     sleep $time_to_sleep
-                    node_status=$($toolKitCli nifi get-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort -ot json $secureOptions | jq -r '.node.status')
+                    node_status=$(./call_nifi_toolkit.sh nifi get-node --nifiNodeId $node_id -ot json | jq -r '.node.status')
                     if [[ $checked > $number_of_checks ]]; then
                       break
                     fi
@@ -324,16 +350,29 @@ spec:
                   if [[ "$node_status" == "OFFLOADING" ]]; then
                     echo "Disconnecting because offloading did not finish in stipulated time...."
                     # Disconnect the node if still offloading
-                    $toolKitCli nifi disconnect-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                    ./call_nifi_toolkit.sh nifi disconnect-node --nifiNodeId $node_id
                     echo
                     sleep 2
                   fi
                   echo "Deleting...."
                   # Delete the disconnected node
-                  $toolKitCli nifi delete-node --nifiNodeId $node_id  -u $webProtocol://$base_url_host:$webPort $secureOptions
+                  ./call_nifi_toolkit.sh nifi delete-node --nifiNodeId $node_id
                   echo
                   sleep 10
                 fi
+{{- if .Values.nifi.properties.secured }}
+                # Removing scaled-up node from its access to "/proxy" policy
+                # If current pod number is greater than what it was in initial cluster
+                # then remove its access to /proxy by deleting the node identity as user.
+                current_node=$(hostname | rev | awk -F "-" '{print $1}' | rev)
+                if [ "$current_node" -ge {{ .Values.replicaCount | quote }} ]; then
+                  user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"CN=$(hostname -f)\")) |.id")
+                  curl -k -X DELETE \
+                  --cert ${NIFI_HOME}/config-data/certs/admin/crt.pem --cert-type PEM \
+                  --key ${NIFI_HOME}/config-data/certs/admin/key.pem --key-type PEM \
+                  https://$base_url_host:{{ .Values.nifi.properties.port.https }}/nifi-api/tenants/users/$user_id?version=0
+                fi
+{{- end }}
                 $NIFI_HOME/bin/nifi.sh stop
 {{- end }}
 {{- if .Values.postStart }}
@@ -355,13 +394,13 @@ spec:
             - |
               # Setting up the readiness probe
 {{- if .Values.nifi.properties.secured }}
-              base_url_host=$(echo `hostname| rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
-              curl -kv \
+              base_url_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
+              curl -k \
                 --cert ${NIFI_HOME}/config-data/certs/admin/crt.pem --cert-type PEM \
                 --key ${NIFI_HOME}/config-data/certs/admin/key.pem --key-type PEM \
                 https://$base_url_host:{{ .Values.nifi.properties.port.https }}/nifi-api/controller/cluster > /tmp/cluster.state
 {{- else }}
-              curl -kv \
+              curl -k \
                 http://$(hostname -f):{{ .Values.nifi.properties.port.http }}/nifi-api/controller/cluster > /tmp/cluster.state
 {{- end }}
               # Get the cluster status

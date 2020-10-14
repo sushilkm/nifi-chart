@@ -1,9 +1,3 @@
-# Description
-
-This is a work to have a working [helm](https://helm.sh/) chart to create [Apache NiFi](https://nifi.apache.org/) cluster.
-
-There are plans to add different authentication and authorization options into the chart to cater different options that NiFi provides.
-
 # Helm charts
 
 This directory has helm charts which are deployable on kubernetes.
