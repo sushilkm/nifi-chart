@@ -5,6 +5,7 @@ image:
   repository: apache/nifi
   tag: "latest"
   pullPolicy: IfNotPresent
+  imagePullSecret: ""
 
 # security context as per user in nifi image
 # This sets up the os-user security context to run the docker container
@@ -167,7 +168,8 @@ ca:
   image:
     repository: apache/nifi-toolkit
     pullPolicy: IfNotPresent
-    tag: "1.11.4"
+    tag: "latest"
+    imagePullSecret: ""
 
 certs:
   name: ""

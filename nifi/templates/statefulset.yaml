@@ -168,6 +168,10 @@ spec:
           - name: "certificates"
             mountPath: /opt/certs
 {{- end }}
+{{- if .Values.image.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.imagePullSecret }}
+{{- end }}
       containers:
       - name: server
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}

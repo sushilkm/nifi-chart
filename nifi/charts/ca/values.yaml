@@ -8,6 +8,7 @@ image:
   repository: apache/nifi-toolkit
   pullPolicy: IfNotPresent
   tag: latest
+  imagePullSecret: ""
 
 service:
   type: ClusterIP

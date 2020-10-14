@@ -20,6 +20,10 @@ spec:
         app: {{ template "ca.name" . }}-ca
         release: {{ .Release.Name }}
     spec:
+{{- if .Values.image.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.imagePullSecret }}
+{{- end }}
       containers:
       - name: ca
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
