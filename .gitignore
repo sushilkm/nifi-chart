@@ -54,3 +54,16 @@ __pycache__/
 # Helm Charts
 *.lock
 *.tgz
+
+# generated secret file
+deployed_secret.yaml
+
+# certificate files
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.csr
+*.srl
