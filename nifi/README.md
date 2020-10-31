@@ -49,11 +49,11 @@ Due to lack of resources on a minikube installation and other differences like t
     $ kubectl create namespace nifi
     $ helm install cluster1 -f minikube-values.yaml . -n nifi
     ```
-- Install secured Apache Nifi using the self-signed certificate generated using nifi-toolkit, use [secured-values.yaml](./secured-values.yaml):
+- Install secured Apache Nifi using the self-signed certificate generated using nifi-toolkit, use [secured-values-with-nifi-toolkit.yaml](./secured-values-with-nifi-toolkit.yaml):
 
     ```bash
     $ kubectl create namespace nifi
-    $ helm install cluster1 -f minikube-values.yaml -f secured-values.yaml . -n nifi
+    $ helm install cluster1 -f minikube-values.yaml -f secured-values-with-nifi-toolkit.yaml . -n nifi
     ```
 
 - Increase number of nifi cluster members on a precreated cluster, we can create a cluster using one of the ways suggested above.
