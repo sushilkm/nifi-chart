@@ -22,3 +22,8 @@ certs:
     - node: 3
       privateKey: node3.key
       certificate: node3.crt
+  userCerts:
+    # - user: 1
+    #   certificate: user1.crt
+    # - user: 2
+    #   certificate: user2.crt

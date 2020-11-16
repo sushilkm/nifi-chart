@@ -237,3 +237,32 @@ However, disabling the admin user will mean that the statefulset running the NiF
 If you are disabling the `adminUser`, you should be specifying either an OpenID or an LDAP user to be the `Initial Admin Identity` via `nifi.authorization.adminUser.name`. Failing to this will result in an inaccessible cluster.
 
 `nifi.authorization.adminUser.enabled` and `nifi.authorization.adminUser.name` are available in [values.yaml](./nifi/values.yaml) file.
+
+# Using self-signed certificates
+
+If a user wants to use self-signed certificates and do not have any root-ca certificate, then they can still use the chart.
+You can skip providing the value of `caCertificate`.
+
+However, the point to be considered is if there are any changes which requires new certificates, for example
+- A new certificate authenticated user is to be added, or
+- A new node needs to be added for scaling-up operation.
+
+Both these cases would require a restart of the existing cluster.
+
+The workflow for adding a new user or node would be as follows.
+
+- Get the new certificate, if the change is for user we will need only public certificate, if it is for node then we would need both public certificate and the private key
+- Add the certificate/key in `add-more-certs-values.yaml` in the format suggested in the file.
+- Run `update-secret-with-more-certs` make target as discussed in [Scaling up NiFi deployed using user-provided certificates and key
+](#scaling-up-nifi-deployed-using-user-provided-certificates-and-key) follows providing the detail for namespace and release name.
+- Update the secret with new certificate information similar to what is described in [Scaling up NiFi deployed using user-provided certificates and key
+](#scaling-up-nifi-deployed-using-user-provided-certificates-and-key)
+- Now we need to restart the cluster, simply delete the pods and the cluster nodes would be restarted. This can be done by either using a rollout restart or the scale-down followed by scale-up.
+    ```
+    # Following is the syntax command to use rollout restart
+    $ kubectl -n namespace_name rollout restart sts nifi_stateful_set_name
+    
+    # Following is the syntax command to use scale-down and scale-up commands to make a restart
+    $ kubectl -n namespace_name scale sts nifi_stateful_set_name --replicas=0
+    $ kubectl -n namespace_name scale sts nifi_stateful_set_name --replicas=replicas_required
+    ```

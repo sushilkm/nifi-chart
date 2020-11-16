@@ -20,4 +20,8 @@ nodeCerts:
   - node: 3
     privateKey: n3.key
     certificate: n3.crt
-
+userCerts:
+  # - user: 1
+  #   certificate: u1.crt
+  # - user: 2
+  #   certificate: u2.crt

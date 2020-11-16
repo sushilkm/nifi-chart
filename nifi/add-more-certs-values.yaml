@@ -5,3 +5,6 @@ nodeCerts:
   - node: 5
     privateKey: node5.key
     certificate: node5.crt
+userCerts:
+  # - user: 3
+  #   certificate: user3.crt

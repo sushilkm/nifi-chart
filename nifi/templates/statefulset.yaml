@@ -128,11 +128,45 @@ spec:
             --arg password "$store_password" \
             '{keyStorePassword: $password, keyPassword: $password, trustStorePassword: $password, trustStoreType:"JKS", keyStoreType:"JKS"}' \
             > config.json
-          keytool -import \
-            -file /opt/certs/caCertificate \
-            -keystore truststore.jks \
-            -storepass $store_password \
-            -noprompt
+          if [ -f /opt/certs/caCertificate ]; then
+            keytool -import \
+              -file /opt/certs/caCertificate \
+              -keystore truststore.jks \
+              -storepass $store_password \
+              -noprompt
+          else
+            # Build truststore from node's certificates.
+            export truststore_loop_node=$(ls -ltr /opt/certs/node*certificate | wc -l)
+            for ((i=1; i<=$truststore_loop_node; i++)); do
+              echo "Adding node_$1 certificate to truststore"
+              keytool -import -file /opt/certs/node_"$i"_certificate \
+                -alias node_key_"$i" \
+                -keystore truststore.jks \
+                -storepass $store_password \
+                -noprompt
+            done
+
+            # Add user's certificates to truststore.
+            export truststore_loop_user=$(ls -ltr /opt/certs/user*certificate | wc -l)
+            echo "Adding user_$1 certificate to truststore"
+            for ((i=1; i<=$truststore_loop_user; i++)); do
+              keytool -import -file /opt/certs/user_"$i"_certificate \
+                -alias user_key_"$i" \
+                -keystore truststore.jks \
+                -storepass $store_password \
+                -noprompt
+            done
+
+{{- if .Values.nifi.authorization.adminUser.enabled }}
+            # Add admin certificate to the truststore
+            echo "Adding admin certificate to truststore"
+            keytool -import -file /opt/certs/admin_certificate \
+              -alias user_key_admin \
+              -keystore truststore.jks \
+              -storepass $store_password \
+              -noprompt
+{{- end }}
+          fi
           openssl pkcs12 -export \
             -in /opt/certs/node_${node_number}_certificate \
             -inkey /opt/certs/node_${node_number}_private_key \

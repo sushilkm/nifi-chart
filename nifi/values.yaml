@@ -188,3 +188,8 @@ certs:
     - node: 3
       privateKey: node3_private_key
       certificate: node3_certificate
+  userCerts:
+    # - user: 1
+    #   certificate: user1_certificate
+    # - user: 2
+    #   certificate: user2_certificate
