@@ -270,6 +270,46 @@ spec:
           sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/authorizers.xml"
           sed -i "s@SECRET_MANAGER_PASSWORD@$ldap_manager_password@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
 {{- end }}
+{{- if .Values.nifi.authentication.ldap.tls.enabled }}
+          export store_password=$(openssl rand -base64 32)
+          # Create a truststore with the ca-cert
+          keytool -import \
+            -file /opt/ldap-certs/ca_certificate \
+            -keystore ${NIFI_HOME}/conf/ldap-truststore.jks \
+            -storepass $store_password \
+            -noprompt
+
+          # Create a keystore with the certificate and private-key
+          openssl pkcs12 -export \
+            -in /opt/ldap-certs/certificate \
+            -inkey /opt/ldap-certs/private_key \
+            -out ${NIFI_HOME}/conf/ldap.p12 \
+            -password pass:$store_password
+          keytool -importkeystore \
+            -srckeystore ${NIFI_HOME}/conf/ldap.p12 \
+            -srcstoretype PKCS12 \
+            -destkeystore ${NIFI_HOME}/conf/ldap-keystore.jks \
+            -deststoretype JKS \
+            -storepass $store_password \
+            -srcstorepass $store_password \
+            -noprompt
+
+          # Configure ldap keystore and truststore in authorizers.xml
+          sed -i "s@LDAP_TLS_KEYSTORE_FILE@${NIFI_HOME}/conf/ldap-keystore.jks@g" "${NIFI_HOME}/conf/authorizers.xml"
+          sed -i "s@LDAP_TLS_KEYSTORE_PASSWORD@$store_password@g" "${NIFI_HOME}/conf/authorizers.xml"
+          sed -i "s@LDAP_TLS_KEYSTORE_TYPE@JKS@g" "${NIFI_HOME}/conf/authorizers.xml"
+          sed -i "s@LDAP_TLS_TRUSTSTORE_FILE@$${NIFI_HOME}/conf/ldap-truststore.jks@g" "${NIFI_HOME}/conf/authorizers.xml"
+          sed -i "s@LDAP_TLS_TRUSTSTORE_PASSWORD@$store_password@g" "${NIFI_HOME}/conf/authorizers.xml"
+          sed -i "s@LDAP_TLS_TRUSTSTORE_TYPE@JKS@g" "${NIFI_HOME}/conf/authorizers.xml"
+
+          # Configure ldap keystore and truststore in login-identity-providers.xml
+          sed -i "s@LDAP_TLS_KEYSTORE_FILE@${NIFI_HOME}/conf/ldap-keystore.jks@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+          sed -i "s@LDAP_TLS_KEYSTORE_PASSWORD@$store_password@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+          sed -i "s@LDAP_TLS_KEYSTORE_TYPE@JKS@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+          sed -i "s@LDAP_TLS_TRUSTSTORE_FILE@$${NIFI_HOME}/conf/ldap-truststore.jks@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+          sed -i "s@LDAP_TLS_TRUSTSTORE_PASSWORD@$store_password@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+          sed -i "s@LDAP_TLS_TRUSTSTORE_TYPE@JKS@g" "${NIFI_HOME}/conf/login-identity-providers.xml"
+{{- end }}
           # Create and update nifi.properties
           cat "${NIFI_HOME}/conf/nifi.temp" > "${NIFI_HOME}/conf/nifi.properties"
           update_property nifi.remote.input.host ${NIFI_HOST}
@@ -463,6 +503,10 @@ spec:
             port: {{ .Values.nifi.properties.port.http }}
 {{- end }}
         volumeMounts:
+{{- if and .Values.nifi.properties.secured ( and .Values.nifi.authentication.ldap.enabled .Values.nifi.authentication.ldap.tls.enabled) }}
+          - name: "ldap-certs"
+            mountPath: /opt/ldap-certs
+{{- end }}
 {{- if .Values.nifi.properties.secured }}
           - name: "config-data"
             mountPath: /opt/nifi/nifi-current/config-data
@@ -523,6 +567,11 @@ spec:
           mountPath: /var/log
 {{- end }}
       volumes:
+{{- if and .Values.nifi.properties.secured ( and .Values.nifi.authentication.ldap.enabled .Values.nifi.authentication.ldap.tls.enabled) }}
+      - name : "ldap-certs"
+        secret:
+          secretName: {{ template "nifi.fullname" . }}-ldap-certs
+{{- end }}
 {{- if and .Values.nifi.properties.secured ( ne .Values.nifi.tls.certificateSource.nifiToolkit true) }}
       - name : "certificates"
         secret:

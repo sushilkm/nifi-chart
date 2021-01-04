@@ -75,6 +75,32 @@ for eg. https://sample-1599088494-nifi.sample-1599088494.svc:443/nifi-api/access
 - Hostname of the accessible NiFi UI is suggested in the output. Add the DNS entry you are supposed to add in /etc/hosts file.
 - Now you are good to go, access your NiFi UI, you would be redirected to login page on NiFi UI.
 
+## Deploying NiFi with authentication using secure LDAP Server
+
+The chart can deploy a secure NiFi cluster configured with authentication/authorization via a secure LDAP server using `authenticationStrategy` `LDAPS` or `START_TLS` using relevant ldap URLs.
+
+TLS certificates for an important requirement for NiFi nodes to interact with LDAP service.
+
+For the sake of ease, we have decided to use wildcard certificates for tls communication between NiFi and LDAP servers. The wildcard certificate will mask only the NiFi node, one NiFi release deployment would be one client-entity irrespective of number of nodes it has.
+
+To deploy NiFi with authentication using secure LDAP server, one can set.
+
+- `nifi.authentication.ldap.tls.enable` to `true`
+- provide the filenames for
+    - `nifi.authentication.ldap.tls.certificate`
+    - `nifi.authentication.ldap.tls.privateKey`
+    - `nifi.authentication.ldap.tls.caCertificate`
+- these files should exist in `nifi.authentication.ldap.tls.dir` directory.
+
+You can also provide values different from default for following paramters, the documentation of these paramters are available in [login-identity-providers.xml](nifi/configs/login-identity-providers.xml).
+
+- `nifi.authentication.ldap.tls.clientAuth`
+- `nifi.authentication.ldap.tls.protocol`
+- `nifi.authentication.ldap.tls.gracefulShutdown`
+
+
+Do not forget to update the value of `nifi.authentication.ldap.authenticationStrategy` to either of `LDAPS` or `START_TLS`.
+
 # Deploying NiFi using user-provided certificates and key
 
 If you want to deploy nifi with user provided certificates and keys then proceed as follows:
