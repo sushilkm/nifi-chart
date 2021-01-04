@@ -25,6 +25,9 @@ spec:
         chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
         release: {{ .Release.Name | quote }}
         heritage: {{ .Release.Service | quote }}
+{{- if .Values.managedIdentity.enabled }}
+        aadpodidbinding: {{ .Values.managedIdentity.AzureIdentityBinding.selectorLabel }}
+{{- end }}
     spec:
       serviceAccountName: {{ template "nifi.fullname" . }}
       terminationGracePeriodSeconds: 300
