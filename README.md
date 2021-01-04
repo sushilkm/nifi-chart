@@ -382,3 +382,103 @@ Proceed as following to deploy [Apache NiFi](https://github.com/apache/nifi) wit
     ```
 
 FYI, you would need to grant relevant access to the user-managed identity or service-principal before using it with Azure resources.
+
+# Using Ingress
+
+The kubernetes cluster should have an ingress controller deployed to use ingress routes.
+
+## Installing Ingress Controller
+
+To create the ingress controller, use Helm to install the chart [ingress-nginx](https://github.com/kubernetes/ingress-nginx/tree/master/charts/ingress-nginx).
+
+The ingress controller needs to be scheduled on a Linux node. Windows Server nodes shouldn't run the ingress controller. A node selector is specified using the --set nodeSelector parameter to tell the Kubernetes scheduler to run the NGINX ingress controller on a Linux-based node.
+
+```
+# Create a namespace for your ingress resources
+$ kubectl create namespace ingress-basic
+
+# Add the ingress-nginx repository
+$ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+# Use Helm to deploy an NGINX ingress controller
+$ helm install nginx-ingress ingress-nginx/ingress-nginx \
+    --namespace ingress-basic \
+    --set controller.replicaCount=2 \
+    --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux \
+    --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux \
+    --set controller.admissionWebhooks.patch.nodeSelector."beta\.kubernetes\.io/os"=linux
+```
+
+Once the controller is up and running, once can check the resources in the namespace `ingress-basic`. A loadbalancer service would be created for nginx ingress controller, a dynamic public IP address is assigned, and can be found as follows:
+
+```
+$ kubectl --namespace ingress-basic get services -o wide -w nginx-ingress-ingress-nginx-controller
+
+NAME                                     TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)                      AGE   SELECTOR
+nginx-ingress-ingress-nginx-controller   LoadBalancer   10.0.74.133   EXTERNAL_IP     80:32486/TCP,443:30953/TCP   44s   app.kubernetes.io/component=controller,app.kubernetes.io/instance=nginx-ingress,app.kubernetes.io/name=ingress-nginx
+```
+
+## Deploying NiFi with Ingress Routes
+
+There is a section in [values.yaml](./nifi/values.yaml) for *ingress* settings.
+
+Following configurations are possible for enabling ingress routes:
+- Anonymous access ingress enabled on an anonymous NiFi cluster.
+
+    - Set `ingress.enabled` to `true`
+- Certificate authentication ingress enabled on an anonymous NiFi cluster.
+    - Set `ingress.enabled` to `true`
+    - Set `ingress.tlsOnAnonymousNifi` to `true`
+    - Provide values for parameters under `ingress.tlsCerts`
+        - `privateKey`: provide the filename of tls private-key located in `tlsCerts.dir`
+        - `certificate`: provide the filename of tls certificate located in `tlsCerts.dir`
+        - `rootCaCertificate`: provide the filename of tls root-ca certificate located in `tlsCerts.dir`
+- Ingress enabled on a secured NiFi cluster.
+    - Set `ingress.enabled` to `true`
+    - Provide values for parameters under `ingress.tlsCerts`
+        - `privateKey`: provide the filename of tls private-key located in `tlsCerts.dir`
+        - `certificate`: provide the filename of tls certificate located in `tlsCerts.dir`
+        - `rootCaCertificate`: provide the filename of tls root-ca certificate located in `tlsCerts.dir`
+
+## Authentication with secured NiFi cluster
+
+Using ingress will simplify the certificate requirements for setting up secured NiFi cluster.
+
+Users will be required to provide tls certs only for the ingress controller with the option of running NiFi with the certificate source `nifiToolkit`. This would help users to minimize certificate requirements which now would only be required for ingress controller and the NiFi nodes certificates could be generated automatically by system using `nifi-toolkit`.
+
+Users can still follow the other certificate source `userProvided` and provide their certificate for every NiFi node. In this case if they want to run ingress controller they will have to provide another set of certificate for ingress controller for the owner `ingress.user.name` to authenticate ingress controller against NiFi. This certificate and the private key to authenticate can be provided as `ingress.proxyCerts.certificate` and `ingress.proxyCerts.privateKey`, respectively.
+
+If users do not enable any other authentication method then the default method of authentication for users will be certificate and NiFi users can use the certificate issued from the CA whose certifcates are used on ingress controller.
+
+# Creating Initial users for NiFi Cluster
+
+One of the important activity after a secured NiFi cluster is created is to setup users for accessing NiFi.
+
+The helm chart now provides feature to specifiy an initial list of users to be created on the NiFi cluster.
+
+There are two types of users that can be created.
+
+- *admins*: These users will be admin users having access to every policy.
+- *uiUsers*: These users will have access only to the NiFi UI via `/flow` policy.
+
+To create initial users one would setup following parameters under `nifi.initUsers` in [values.yaml](./nifi/values.yaml).
+
+- `enabled`: Set it to `true` to enable creation of initial users.
+- `admins`: Provide a list of users which are to created as admin users.
+- `uiUsers`: Provide a list of users which are to created with access to NiFi UI only.
+
+Following is an example of how to specify initUsers. These can be users authenticated via any mechanism (cert/OpenID/LDAP).
+
+```
+  initUsers:
+    enabled: true
+    admins:
+      - "CN=admin1"
+      - "admin2"
+      - "admin3@def.com"
+    uiUsers:
+      - "CN=user1"
+      - "user2"
+      - "user3@def.com"
+```
+

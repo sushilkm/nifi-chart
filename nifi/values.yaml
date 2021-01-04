@@ -31,7 +31,7 @@ headless:
 
 # ui service
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port:
     http: 80
     https: 443
@@ -39,7 +39,30 @@ service:
   sessionAffinity: "ClientIP"
   sessionAffinityTimeoutInSeconds: 60
 
+ingress:
+  enabled: false
+  affinity: "cookie"
+  affinityMode: "affinityMode"
+  tlsVerifyDepth: 1
+  user:
+    name: "CN=proxyUser"
+  tlsOnAnonymousNifi: false
+  authenticateIngressOnAnonymousNifi: false
+  tlsCerts:
+    dir: certificates
+    privateKey: ingress-tls.key
+    certificate: ingress-tls.crt
+    rootCaCertificate: ingress-root-ca.crt
+  proxyCerts:
+    # We would need certificate for ingress to authenticate itself to NiFi
+    # These certificates would be required for ingress.user.name
+    # One would need to provide these certificates when using user-provided certs for NiFi cluster
+    dir: certificates
+    privateKey: proxy-ingress-tls.key
+    certificate: proxy-ingress-tls.crt
+
 nifi:
+  waitTimeToCheckNodeStatus: 30
   # Values for bootstrap.conf
   bootstrapConf:
     jvmMinMemory: 32g
@@ -147,6 +170,18 @@ nifi:
       groupNameAttribute: "cn"
       groupMemberAttribute: ""
       groupReferencedUserAttribute: ""
+  initUsers:
+    enabled: false
+    admins:
+      # Example user names should be put in quotes
+      # - "CN=admin1"
+      # - "admin2"
+      # - "admin3@def.com"
+    uiUsers:
+      # Example user names should be put in quotes
+      # - "user1"
+      # - "CN=user2"
+      # - "user3@def.com"
 
 # pvc details
 persistence:
