@@ -50,7 +50,7 @@ spec:
             echo "waiting for zookeeper..."
             sleep 2
           done
-{{- if .Values.nifi.certificateSource.nifiToolkit }}
+{{- if .Values.nifi.tls.certificateSource.nifiToolkit }}
       - name: cert
         imagePullPolicy: {{ .Values.ca.image.pullPolicy | quote }}
         image: "{{ .Values.ca.image.repository }}:{{ .Values.ca.image.tag }}"
@@ -520,10 +520,10 @@ spec:
           mountPath: /var/log
 {{- end }}
       volumes:
-{{- if and .Values.nifi.properties.secured ( ne .Values.nifi.certificateSource.nifiToolkit true) }}
+{{- if and .Values.nifi.properties.secured ( ne .Values.nifi.tls.certificateSource.nifiToolkit true) }}
       - name : "certificates"
         secret:
-          secretName: {{ template "certs.name" . }}
+          secretName: {{ template "nifi.fullname" . }}-certs
 {{- end }}
       - name: "bootstrap-conf"
         configMap:

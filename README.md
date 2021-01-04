@@ -79,8 +79,8 @@ for eg. https://sample-1599088494-nifi.sample-1599088494.svc:443/nifi-api/access
 
 If you want to deploy nifi with user provided certificates and keys then proceed as follows:
 
-- We have got a values file [secured-values-with-user-provided-certs.yaml](./nifi/secured-values-with-user-provided-certs.yaml) where one can provide values certiifcate and private-key filenames.
-- Copy your root-ca certificate, node-specific certificate and their private-key files to [nifi/certificates](./nifi/certficates) directory. We do not need private key for root-ca.
+- We have got a values file [secured-values-with-user-provided-certs.yaml](./nifi/secured-values-with-user-provided-certs.yaml) where one can provide values for certificate and private-key filenames.
+- Copy your root-ca certificate, node-specific certificate and their private-key files to [nifi/certificates](./nifi/certificates) directory. We do not need private key for root-ca.
 - Now specify the `nodeCerts` list with node number, privatekey file-name and certificate file-name as already suggested in the [`secured-values-with-user-provided-certs.yaml`](./nifi/secured-values-with-user-provided-certs.yaml) file.
 - You can add/remove the numbers as per your requirement like
     ```
@@ -101,7 +101,7 @@ If you want to deploy nifi with user provided certificates and keys then proceed
 
 Once you have deployed NiFi cluster using the user-provided certificates, and you want to scale up, then proceed as follows.
 
-- Copy your new node-specific certificate and their private-key files to [nifi/certificates](./nifi/certficates) directory. We do not need private key for root-ca.
+- Copy your new node-specific certificate and their private-key files to [nifi/certificates](./nifi/certificates) directory. We do not need private key for root-ca.
 - Now specify the `nodeCerts` list with new node number, privatekey file-name and certificate file-name in the [add-more-certs-values.yaml](./nifi/add-more-certs-values.yaml) file.
 - You do not need to add pre-existing certificates to this values file, it is optional.
 - You can add/remove the numbers as per your requirement like
@@ -118,7 +118,7 @@ Once you have deployed NiFi cluster using the user-provided certificates, and yo
     ```
     or
     ```
-    $ DEPLOYED_NS=ns1 DEPLOYED=rs1 make update-secret-with-more-certs
+    $ DEPLOYED_NS=ns1 DEPLOYED_RELEASE=rs1 make update-secret-with-more-certs
     ```
     First example woud use release name as namespace itself.
 - Last step would generate a file `deployed_secret.yaml` which has details of existing secret

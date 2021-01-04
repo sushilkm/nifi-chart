@@ -46,7 +46,7 @@ Create zookeeper.server
 Create ca.server
 */}}
 {{- define "ca.server" }}
-{{- if .Values.nifi.certificateSource.nifiToolkit -}}
+{{- if .Values.nifi.tls.certificateSource.nifiToolkit -}}
 {{- printf "%s-ca" .Release.Name }}
 {{- else -}}
 {{- printf "%s" .Values.ca.server }}
@@ -62,16 +62,5 @@ Create the Zookeeper URL using user-provided zookeeper server-name and port
 {{- printf "%s-zookeeper:%s" .Release.Name $port }}
 {{- else -}}
 {{- printf "%s:%s" .Values.zookeeper.server $port }}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Create certs.name
-*/}}
-{{- define "certs.name" }}
-{{- if ".Values.certs.enabled" -}}
-{{- printf "%s-certs" .Release.Name }}
-{{- else -}}
-{{- printf "%s" ".Values.certs.name" }}
 {{- end -}}
 {{- end -}}

@@ -1,5 +1,0 @@
-nifi_properties:
-  secured: true
-
-ca:
-  enabled: true

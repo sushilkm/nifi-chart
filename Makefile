@@ -61,10 +61,11 @@ deploy-secured-nifi-with-user-certs: update-nifi-dependency
 
 .phony: update-secret-with-more-certs
 update-secret-with-more-certs:
-	kubectl -n ${DEPLOYED_NS} get secret ${DEPLOYED_RELEASE}-certs -o yaml > deployed_secret.yaml
-	helm install ${RELEASE_NAME} \
+	kubectl -n ${DEPLOYED_NS} get secret ${DEPLOYED_RELEASE}-nifi-certs -o yaml > deployed_secret.yaml
+	helm template ${RELEASE_NAME} \
 		-f ${NIFI_CHART_DIR}/add-more-certs-values.yaml \
-		${NIFI_CHART_DIR}/charts/certs --dry-run
+		-s templates/certs-secret.yaml \
+		${NIFI_CHART_DIR}  --dry-run
 
 .phony: deploy-secured-nifi-with-openid-authentication-with-user-certs
 deploy-secured-nifi-with-openid-authentication-with-user-certs: update-nifi-dependency
