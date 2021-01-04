@@ -413,9 +413,9 @@ spec:
               node_id=$(echo $cluster_info | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .nodeId")
               ./call_nifi_toolkit.sh nifi delete-node --nifiNodeId $node_id
             fi
-{{- if .Values.nifi.certificateSource.nifiToolkit }}
+{{- if .Values.nifi.tls.certificateSource.nifiToolkit }}
             create_nifi_proxy "CN=$(hostname -f), OU=NIFI"
-{{- else if .Values.nifi.certificateSource.userProvided }}
+{{- else if .Values.nifi.tls.certificateSource.userProvided }}
             create_nifi_proxy "CN=$(hostname -f)"
 {{- end }}
           fi
@@ -432,7 +432,7 @@ spec:
           update_property nifi.web.proxy.host {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
 {{- end }}
 
-{{- if and .Values.ingress.enabled .Values.nifi.certificateSource.nifiToolkit }}
+{{- if and .Values.ingress.enabled .Values.nifi.tls.certificateSource.nifiToolkit }}
           # Create secret using the ingress.user.name certificate, so that ingress can use it for backend authentication
           if [[ `hostname` == "$base_host" ]]; then
             ${NIFI_HOME}/bin/kubectl -n {{ .Release.Namespace }} get secret \
@@ -570,9 +570,9 @@ spec:
                 # then remove its access to /proxy by deleting the node identity as user.
                 current_node=$(hostname | rev | awk -F "-" '{print $1}' | rev)
                 if [ "$current_node" -ge {{ .Values.replicaCount | quote }} ]; then
-{{- if .Values.nifi.certificateSource.nifiToolkit }}
+{{- if .Values.nifi.tls.certificateSource.nifiToolkit }}
                   user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"CN=$(hostname -f), OU=NIFI\")) |.id")
-{{- else if .Values.nifi.certificateSource.userProvided }}
+{{- else if .Values.nifi.tls.certificateSource.userProvided }}
                   user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"CN=$(hostname -f)\")) |.id")
 {{- end }}
                   curl -k -X DELETE \
