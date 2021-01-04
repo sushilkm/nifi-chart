@@ -1,5 +1,0 @@
-apiVersion: v2
-name: certs
-description: A Helm chart to create secret containing certificates
-type: application
-version: 0.1.0

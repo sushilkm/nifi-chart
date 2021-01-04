@@ -61,9 +61,31 @@ nifi:
     webProxyHost: ""
     # security parameters
     secured: false
-  certificateSource:
-    nifiToolkit: false
-    userProvided: false
+  tls:
+    certificateSource:
+      nifiToolkit: false
+      userProvided: false
+    dir: certificates
+    caCertificate: root_ca_certificate
+    adminUser:
+      enabled: true
+      privateKey: admin_private_key
+      certificate: admin_certificate
+    nodeCerts:
+      - node: 1
+        privateKey: node1_private_key
+        certificate: node1_certificate
+      - node: 2
+        privateKey: node2_private_key
+        certificate: node2_certificate
+      - node: 3
+        privateKey: node3_private_key
+        certificate: node3_certificate
+    userCerts:
+      # - user: 1
+      #   certificate: user1_certificate
+      # - user: 2
+      #   certificate: user2_certificate
   # authentication parameters
   authentication:
     ldap:
@@ -170,26 +192,3 @@ ca:
     pullPolicy: IfNotPresent
     tag: "latest"
     imagePullSecret: ""
-
-certs:
-  name: ""
-  caCertificate: root_ca_certificate
-  adminUser:
-    enabled: true
-    privateKey: admin_private_key
-    certificate: admin_certificate
-  nodeCerts:
-    - node: 1
-      privateKey: node1_private_key
-      certificate: node1_certificate
-    - node: 2
-      privateKey: node2_private_key
-      certificate: node2_certificate
-    - node: 3
-      privateKey: node3_private_key
-      certificate: node3_certificate
-  userCerts:
-    # - user: 1
-    #   certificate: user1_certificate
-    # - user: 2
-    #   certificate: user2_certificate

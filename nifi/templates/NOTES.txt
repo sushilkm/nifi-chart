@@ -1,9 +1,9 @@
-{{- if and .Values.nifi.certificateSource.nifiToolkit .Values.nifi.certificateSource.userProvided }}
+{{- if and .Values.nifi.tls.certificateSource.nifiToolkit .Values.nifi.tls.certificateSource.userProvided }}
 {{ fail "\n\nOnly one certificateSource can be provided either nifiToolkit or userProvided" }}
 {{- end }}
 
 {{- if .Values.nifi.properties.secured }}
-{{- if and (ne .Values.nifi.certificateSource.nifiToolkit true) (ne .Values.nifi.certificateSource.userProvided true) }}
+{{- if and (ne .Values.nifi.tls.certificateSource.nifiToolkit true) (ne .Values.nifi.tls.certificateSource.userProvided true) }}
 {{ fail "\n\nAt least one certificateSource is needed either nifiToolkit or userProvided" }}
 {{- end }}
 {{- end }}
@@ -65,7 +65,7 @@ http://{{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.
 {{- end }}
 
 {{- if and .Values.nifi.properties.secured .Values.nifi.authorization.adminUser.enabled }}
-{{- if and .Values.nifi.certificateSource.nifiToolkit .Values.nifi.authorization.adminUser.enabled }}
+{{- if and .Values.nifi.tls.certificateSource.nifiToolkit .Values.nifi.authorization.adminUser.enabled }}
 
 Get the certificate and certificate-config from the pod as follows:
   kubectl cp {{ .Release.Namespace }}/{{ template "nifi.fullname" . }}-0:/opt/nifi/nifi-current/config-data/certs/admin/keystore.pkcs12 keystore.pkcs12
@@ -73,7 +73,7 @@ Get the certificate and certificate-config from the pod as follows:
 
 One can import this certificate obtained using the certificate password obtained as follows
   jq -r .keyStorePassword config.json
-{{- else if .Values.nifi.certificateSource.userProvided }}
+{{- else if .Values.nifi.tls.certificateSource.userProvided }}
 
 Install the client/ca certificate on your machine you have received from your certificate provider.
 {{- end }}

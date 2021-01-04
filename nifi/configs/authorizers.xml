@@ -52,14 +52,14 @@
         <class>org.apache.nifi.authorization.FileUserGroupProvider</class>
         <property name="Users File">./config-data/conf/users.xml</property>
         <property name="Legacy Authorized Users File"></property>
-{{- if .Values.nifi.certificateSource.userProvided }}
+{{- if .Values.nifi.tls.certificateSource.userProvided }}
 {{- if or .Values.nifi.authorization.adminUser.enabled .Values.nifi.authentication.openid.enabled }}
         <property name="Initial User Identity admin">{{ .Values.nifi.authorization.adminUser.name }}</property>
 {{- end }}
 {{- range $i := until $replicas }}
         <property name="Initial User Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local</property>
 {{- end }}
-{{- else if .Values.nifi.certificateSource.nifiToolkit }}
+{{- else if .Values.nifi.tls.certificateSource.nifiToolkit }}
 {{- if .Values.nifi.authorization.adminUser.enabled }}
         <property name="Initial User Identity admin">{{ .Values.nifi.authorization.adminUser.name }}, OU=NIFI</property>
 {{- else if .Values.nifi.authentication.openid.enabled }}
@@ -297,12 +297,12 @@
         <property name="User Group Provider">composite-configurable-user-group-provider</property>
         <property name="Authorizations File">./config-data/conf/authorizations.xml</property>
         <property name="Legacy Authorized Users File"></property>
-{{- if .Values.nifi.certificateSource.userProvided }}
+{{- if .Values.nifi.tls.certificateSource.userProvided }}
         <property name="Initial Admin Identity">{{ .Values.nifi.authorization.adminUser.name }}</property>
 {{- range $i := until $replicas }}
         <property name="Node Identity {{ $i }}">CN={{ $fullname }}-{{ $i }}.{{ $fullname }}-headless.{{ $namespace }}.svc.cluster.local</property>
 {{- end }}
-{{- else if .Values.nifi.certificateSource.nifiToolkit }}
+{{- else if .Values.nifi.tls.certificateSource.nifiToolkit }}
 {{- if .Values.nifi.authorization.adminUser.enabled }}
         <property name="Initial Admin Identity">{{ .Values.nifi.authorization.adminUser.name }}, OU=NIFI</property>
 {{- else }}
