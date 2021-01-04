@@ -106,6 +106,32 @@ spec:
           openssl pkcs12 -in "keystore.pkcs12" -out "key.pem" -nocerts -nodes -password "env:PASS"
           openssl pkcs12 -in "keystore.pkcs12" -out "crt.pem" -clcerts -nokeys -password "env:PASS"
 {{- end }}
+{{- if .Values.ingress.enabled }}
+          # Create certificate for ingres.user.name so that ingress can use it for backend authentication
+          base_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0)
+          if [[ `hostname` == "$base_host" ]]; then
+            # Generate client certificate for browser with webProxyHost or service name as alternate names to access nifi web ui
+            mkdir -p /data/config-data/certs/proxy
+            cd /data/config-data/certs/proxy
+
+            ${NIFI_TOOLKIT_HOME}/bin/tls-toolkit.sh client \
+              -c "{{ template "ca.server" . }}" \
+              -t {{ .Values.ca.token }} \
+{{- if .Values.nifi.properties.webProxyHost }}
+              --subjectAlternativeNames {{ .Values.nifi.properties.webProxyHost }} \
+{{- else }}
+              --subjectAlternativeNames {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc \
+{{- end }}
+              -p {{ .Values.ca.port }} \
+              -D {{ .Values.ingress.user.name | quote }} \
+              -T PKCS12
+
+            export PASS=$(jq -r .keyStorePassword config.json)
+            openssl pkcs12 -in "keystore.pkcs12" -out "key.pem" -nocerts -nodes -password "env:PASS"
+            openssl pkcs12 -in "keystore.pkcs12" -out "crt.pem" -clcerts -nokeys -password "env:PASS"
+            openssl pkcs12 -in "keystore.pkcs12" -out "ca-crt.pem" -cacerts -nokeys -chain -password "env:PASS"
+          fi
+{{- end }}
         volumeMounts:
           - name: "config-data"
             mountPath: /data/config-data
@@ -223,12 +249,14 @@ spec:
         - -ce
         - |
           set -ex
+          # Download kubectl, this can be later backed into the docker image
+          curl -Lo ${NIFI_HOME}/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+          chmod +x ${NIFI_HOME}/bin/kubectl
           # Creating a script to call nifi-toolkit
           cat > call_nifi_toolkit.sh << EOF
           #!/usr/bin/env bash
           set -e
 
-          input_command=\$*
           toolKitCli="${NIFI_TOOLKIT_HOME}/bin/cli.sh"
 {{- if .Values.nifi.properties.secured }}
           webProtocol=https
@@ -245,8 +273,8 @@ spec:
           webPort={{ .Values.nifi.properties.port.http }}
           secureOptions=""
 {{- end }}
-          base_url_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)
-          \$toolKitCli \$input_command -u \$webProtocol://\$base_url_host:\$webPort -ot json \$secureOptions
+          base_url_host=\${base_url_host:-$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0.`hostname -f | cut -d "." -f 2-`)}
+          \$toolKitCli "\$@" -u \$webProtocol://\$base_url_host:\$webPort -ot json \$secureOptions
           EOF
           chmod 700 call_nifi_toolkit.sh
           update_property () {
@@ -258,6 +286,49 @@ spec:
               echo ${1}=${2} >> ${target_file}
             fi
           }
+
+          create_nifi_admin_user () {
+            admin_user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"$1\")) |.id")
+            if [[ -z $admin_user_id ]]; then
+              ./call_nifi_toolkit.sh nifi create-user -un "$1"
+              admin_user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"$1\")) |.id")
+            fi
+            ./call_nifi_toolkit.sh nifi update-policy -por "/flow" -poa read -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/tenants" -poa read -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/tenants" -poa write -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/policies" -poa read -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/policies" -poa write -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/controller" -poa read -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/controller" -poa write -uil "$admin_user_id"
+            ./call_nifi_toolkit.sh nifi update-policy -por "/restricted-components" -poa write -uil "$admin_user_id"
+          }
+
+          create_nifi_ui_user () {
+            ui_user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"$1\")) |.id")
+            if [[ -z $ui_user_id ]]; then
+              ./call_nifi_toolkit.sh nifi create-user -un "$1"
+              ui_user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"$1\")) |.id")
+            fi
+            ./call_nifi_toolkit.sh nifi update-policy -por "/flow" -poa read -uil "$ui_user_id"
+          }
+
+          create_nifi_proxy () {
+            proxy_user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"$1\")) |.id")
+            if [[ ! -z $proxy_user_id ]]; then
+              echo "user $1 already exits!!!"
+              return
+            fi
+            ./call_nifi_toolkit.sh nifi create-user -un "$1"
+            proxy_user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"$1\")) |.id")
+            ./call_nifi_toolkit.sh nifi update-policy -por "/proxy" -poa write -uil "$proxy_user_id"
+          }
+
+          # Setup NIFI_RESTART if authorizations.xml exists, because this file will not exist first time.
+          if [ -f "${NIFI_HOME}/config-data/conf/authorizations.xml" ]; then
+            export NIFI_RESTART=1
+          else
+            export NIFI_RESTART=0
+          fi
 
           mkdir -p ${NIFI_HOME}/config-data/conf
           NIFI_HOST=$(hostname -f)
@@ -342,17 +413,17 @@ spec:
               node_id=$(echo $cluster_info | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .nodeId")
               ./call_nifi_toolkit.sh nifi delete-node --nifiNodeId $node_id
             fi
-            ./call_nifi_toolkit.sh nifi create-user -un CN=$(hostname -f)
-            ./call_nifi_toolkit.sh nifi update-policy -por "/proxy" -poa write -unl CN=$(hostname -f)
+{{- if .Values.nifi.certificateSource.nifiToolkit }}
+            create_nifi_proxy "CN=$(hostname -f), OU=NIFI"
+{{- else if .Values.nifi.certificateSource.userProvided }}
+            create_nifi_proxy "CN=$(hostname -f)"
+{{- end }}
           fi
           base_host=$(echo `hostname | rev  | cut -d "-" -f 2- | rev`-0)
           if [[ `hostname` != "$base_host" ]]; then
-            # Download kubectl, this can be later backed into the docker image
-            curl -Lo ${NIFI_HOME}/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
-            chmod +x ${NIFI_HOME}/bin/kubectl
             # Download authorizations.xml from pod-0, it helps to get authorizations.xml required for adding up new nodes
-            ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:/opt/nifi/nifi-current/config-data/conf/authorizations.xml /opt/nifi/nifi-current/config-data/conf/authorizations.xml
-            ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:/opt/nifi/nifi-current/config-data/conf/users.xml /opt/nifi/nifi-current/config-data/conf/users.xml
+            ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:${NIFI_HOME}/config-data/conf/authorizations.xml ${NIFI_HOME}/config-data/conf/authorizations.xml
+            ${NIFI_HOME}/bin/kubectl cp {{ .Release.Namespace }}/${base_host}:${NIFI_HOME}/config-data/conf/users.xml ${NIFI_HOME}/config-data/conf/users.xml
           fi
 {{- if .Values.nifi.properties.webProxyHost }}
           # Update nifi.properties for web ui proxy hostname
@@ -361,13 +432,65 @@ spec:
           update_property nifi.web.proxy.host {{ template "nifi.fullname" . }}.{{ .Release.Namespace }}.svc
 {{- end }}
 
+{{- if and .Values.ingress.enabled .Values.nifi.certificateSource.nifiToolkit }}
+          # Create secret using the ingress.user.name certificate, so that ingress can use it for backend authentication
+          if [[ `hostname` == "$base_host" ]]; then
+            ${NIFI_HOME}/bin/kubectl -n {{ .Release.Namespace }} get secret \
+              {{ template "nifi.fullname" . }}-proxy-authentication-tls-secret || \
+            ${NIFI_HOME}/bin/kubectl -n {{ .Release.Namespace }} create secret generic \
+              {{ template "nifi.fullname" . }}-proxy-authentication-tls-secret \
+              --from-file=tls.crt=${NIFI_HOME}/config-data/certs/proxy/crt.pem \
+              --from-file=tls.key=${NIFI_HOME}/config-data/certs/proxy/key.pem \
+              --from-file=ca.crt=${NIFI_HOME}/config-data/certs/proxy/ca-crt.pem
+          fi
+{{- end }}
+
 {{- else }}
           update_property nifi.web.http.host ${NIFI_HOST}
 {{- if .Values.nifi.properties.networkInterface.default }}
           update_property nifi.web.http.network.interface.default {{ .Values.nifi.properties.networkInterface.default }}
 {{- end }}
 {{- end }}
-          exec bin/nifi.sh run
+          bin/nifi.sh start
+          NODE_STATUS="NOT CONNECTED"
+          # Lets check whether node has been connected
+          while [[ "$NODE_STATUS" != "CONNECTED" ]]; do
+            sleep 15
+            NODE_STATUS=$(base_url_host=`hostname -f` ./call_nifi_toolkit.sh nifi get-nodes | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .status" || echo "NOT CONNECTED")
+          done
+
+{{- if .Values.nifi.properties.secured }}
+          if [[ `hostname` == "$base_host" ]] && [[ $NIFI_RESTART == 0 ]]; then
+            # This should only be done on the first boot and not reboots or any other maintenance.
+            echo "Performing post start activities on base host!!!"
+{{- if .Values.ingress.enabled }}
+            # Grant the /proxy access to the ingress controller
+            create_nifi_proxy "{{ .Values.ingress.user.name }}"
+{{- if .Values.nifi.authorization.adminUser.enabled }}
+            # Create admin user accessible over ingress as nifi.authorization.adminUser.name
+            create_nifi_admin_user "{{ .Values.nifi.authorization.adminUser.name }}"
+{{- end }}
+{{- end }}
+{{- if .Values.nifi.initUsers.enabled }}
+            # Create the initial NiFi users as requested
+            echo "Creating the init users."
+{{- range $adminUser := .Values.nifi.initUsers.admins }}
+            create_nifi_admin_user "{{ $adminUser }}"
+{{- end }}
+{{- range $uiUser := .Values.nifi.initUsers.uiUsers }}
+            create_nifi_ui_user "{{ $uiUser }}"
+{{- end }}
+{{- end }}
+          else
+            echo "Pod was restarted, skipping post-start activity."
+          fi
+{{- end }}
+
+          # Keep a check on node status that it remains connected
+          while [[ "$NODE_STATUS" == "CONNECTED" ]]; do
+            sleep {{ .Values.nifi.waitTimeToCheckNodeStatus }}
+            NODE_STATUS=$(base_url_host=`hostname -f` ./call_nifi_toolkit.sh nifi get-nodes | jq -r  ".cluster.nodes[] | select((.address==\"$(hostname -f)\")) | .status" || echo "NOT CONNECTED")
+          done
         resources:
 {{ toYaml .Values.resources | indent 10 }}
         ports:
@@ -447,7 +570,11 @@ spec:
                 # then remove its access to /proxy by deleting the node identity as user.
                 current_node=$(hostname | rev | awk -F "-" '{print $1}' | rev)
                 if [ "$current_node" -ge {{ .Values.replicaCount | quote }} ]; then
+{{- if .Values.nifi.certificateSource.nifiToolkit }}
+                  user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"CN=$(hostname -f), OU=NIFI\")) |.id")
+{{- else if .Values.nifi.certificateSource.userProvided }}
                   user_id=$(./call_nifi_toolkit.sh nifi list-users | jq -r ".users[].component | select((.identity==\"CN=$(hostname -f)\")) |.id")
+{{- end }}
                   curl -k -X DELETE \
                   --cert ${NIFI_HOME}/config-data/certs/admin/crt.pem --cert-type PEM \
                   --key ${NIFI_HOME}/config-data/certs/admin/key.pem --key-type PEM \
