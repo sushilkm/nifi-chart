@@ -96,6 +96,17 @@ nifi:
   authentication:
     ldap:
       enabled: false
+      tls:
+        enabled: false
+        certs:
+          dir: "certificates"
+          wildcard: true
+          certificate: ldap-tls.crt
+          privateKey: ldap-tls.key
+          caCertificate: ldap-tls-ca.crt
+        clientAuth: NONE
+        protocol: TLS
+        gracefulShutdown: false
       authenticationStrategy: "SIMPLE"
       referralStrategy: "FOLLOW"
       identityStrategy: "USE_USERNAME"

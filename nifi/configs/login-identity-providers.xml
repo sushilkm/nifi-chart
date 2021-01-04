@@ -69,17 +69,18 @@
         <class>org.apache.nifi.ldap.LdapProvider</class>
         <property name="Authentication Strategy">{{ .Values.nifi.authentication.ldap.authenticationStrategy }}</property>
 
-    <!-- TODO: Enable LDAP with TLS. This is 1 of 2.
-        <property name="TLS - Keystore"></property>
-        <property name="TLS - Keystore Password"></property>
-        <property name="TLS - Keystore Type"></property>
-        <property name="TLS - Truststore"></property>
-        <property name="TLS - Truststore Password"></property>
-        <property name="TLS - Truststore Type"></property>
-        <property name="TLS - Client Auth"></property>
-        <property name="TLS - Protocol"></property>
-        <property name="TLS - Shutdown Gracefully"></property>
-    To enable the LDAP with TLS remove 2 lines. This is 2 of 2. -->
+{{- if .Values.nifi.authentication.ldap.tls.enabled }}
+
+        <property name="TLS - Keystore">LDAP_TLS_KEYSTORE_FILE</property>
+        <property name="TLS - Keystore Password">LDAP_TLS_KEYSTORE_PASSWORD</property>
+        <property name="TLS - Keystore Type">LDAP_TLS_KEYSTORE_TYPE</property>
+        <property name="TLS - Truststore">LDAP_TLS_TRUSTSTORE_FILE</property>
+        <property name="TLS - Truststore Password">LDAP_TLS_TRUSTSTORE_PASSWORD</property>
+        <property name="TLS - Truststore Type">LDAP_TLS_TRUSTSTORE_TYPE</property>
+        <property name="TLS - Client Auth">N{{ .Values.nifi.authentication.ldap.tls.clientAuth }}ONE</property>
+        <property name="TLS - Protocol">{{ .Values.nifi.authentication.ldap.tls.protocol }}</property>
+        <property name="TLS - Shutdown Gracefully">{{ .Values.nifi.authentication.ldap.tls.gracefulShutdown }}</property>
+{{- end }}
 
         <property name="Manager DN">{{ .Values.nifi.authentication.ldap.managerDn }}</property>
         <property name="Manager Password">SECRET_MANAGER_PASSWORD</property>
