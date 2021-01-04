@@ -17,6 +17,12 @@ securityContext:
 # statefulset replica-count
 replicaCount: 3
 
+# Azure managed identity details
+managedIdentity:
+  enabled: false
+  AzureIdentityBinding:
+    selectorLabel: ""
+
 # headless service
 headless:
   type: ClusterIP

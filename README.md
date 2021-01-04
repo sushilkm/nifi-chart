@@ -266,3 +266,93 @@ The workflow for adding a new user or node would be as follows.
     $ kubectl -n namespace_name scale sts nifi_stateful_set_name --replicas=0
     $ kubectl -n namespace_name scale sts nifi_stateful_set_name --replicas=replicas_required
     ```
+
+# Using Azure Managed Identity
+
+We are utilizing [AAD Pod Identity](https://github.com/Azure/aad-pod-identity) for using Azure managed identity with Apache NiFi pods on AKS cluster.
+
+We will setup AAD pod identity to create CRDs etc. and then deploy `AzureIdentity` and `AzureIdentityBinding` followed by deploying NiFi using helm chart providing the values for `managedIdentity.AzureIdentityBinding.selectorLabel` after updating `managedIdentity.enabled` to `true`.
+
+Proceed as following to deploy [Apache NiFi](https://github.com/apache/nifi) with [AAD pod identity](https://github.com/Azure/aad-pod-identity) using [helm chart](./nifi).
+
+- Deploy AAD pod identity: deploy using Helm 3
+    ```
+    # Add helm repository
+    $ helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
+    # Install aad pod identity
+    $ helm install aad-pod-identity aad-pod-identity/aad-pod-identity --set nmi.allowNetworkPluginKubenet=true
+    ```
+- Create identity on Azure, here we can use two types of identities user-assigned MSI, or service-principal with client secret.
+    - **user-managed MSI**: create the managed identity and grant relevant access to the identity, and create `AzureIdentity`.
+        ```
+        #
+        # Get identity details
+        #
+        $ export IDENTITY_RESOURCE_GROUP='user-identity-1-rgp'
+        $ export IDENTITY_NAME='user-identity-1'
+        $ export IDENTITY_CLIENT_ID="$(az identity show -g ${IDENTITY_RESOURCE_GROUP} -n ${IDENTITY_NAME} --query clientId -otsv)"
+        $ export IDENTITY_RESOURCE_ID="$(az identity show -g ${IDENTITY_RESOURCE_GROUP} -n ${IDENTITY_NAME} --query id -otsv)"
+        #
+        # Create AzureIdentity
+        #
+        $ cat <<EOF | kubectl apply -f -
+        apiVersion: "aadpodidentity.k8s.io/v1"
+        kind: AzureIdentity
+        metadata:
+            name: aad-azure-identity-1
+        spec:
+            type: 0
+            resourceID: ${IDENTITY_RESOURCE_ID}
+            clientID: ${IDENTITY_CLIENT_ID}
+        EOF
+        ```
+    - **Service Principal with client secret**: create the service-principal with client secret either using the registered app with relevant access to applications or simply create a service-principal for rbac.
+        ```
+        # Create service princiapal for RBAC
+        $ az ad sp create-for-rbac --name aad-sp1
+        ```
+        Above command would provide the tenant-id, client-id and secret. we will use these for creating kubernetes secret and `AzureIdentity`.
+        ```
+        # Create kubernetes for the client-secret
+        $ kubectl create secret generic aad-sp1 --from-literal=clientSecret="client_secret"
+        ```
+
+        ```
+        # Create AzureIdentity
+        $ cat <<EOF | kubectl apply -f -
+        apiVersion: "aadpodidentity.k8s.io/v1"
+        kind: AzureIdentity
+        metadata:
+            name: aad-azure-identity-1
+        spec:
+            type: 1
+            tenantID: "TENANT_ID"
+            clientID: "CLIENT_ID"
+            clientPassword: {"name":"aad-sp1","namespace":"default"}
+        EOF
+        ```
+- Create `AzureIdentityBinding` referencing the `AzureIdentity` which we just created.
+    ```
+    cat <<EOF | kubectl apply -f -
+    apiVersion: "aadpodidentity.k8s.io/v1"
+    kind: AzureIdentityBinding
+    metadata:
+        name: aad-azure-identity-1-binding
+    spec:
+        azureIdentity: aad-azure-identity-1
+        selector: aad-azure-identity-1-selector
+    EOF
+    ```
+- Update following properties in [values.yaml](./nifi/values.yaml) and then deploy using make target
+    - `managedIdentity.enabled`: set it to `true`
+    - `managedIdentity.AzureIdentityBinding.selectorLabel`: set it to `aad-azure-identity-1-selector` as used above in creating `AzureIdentityBinding`.
+    ```
+    $ make deploy-nifi
+    ```
+- Alternatively, you can directly provide values while deploying helm chart
+    ```
+    $ kubectl create namespace aad-trial-1
+    $ helm install aad-trial-1 nifi -n aad-trial-1 --set managedIdentity.enabled=true --set managedIdentity.AzureIdentityBinding.selectorLabel=aad-azure-identity-1-selector
+    ```
+
+FYI, you would need to grant relevant access to the user-managed identity or service-principal before using it with Azure resources.
