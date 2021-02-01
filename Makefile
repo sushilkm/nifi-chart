@@ -10,11 +10,13 @@ DEPLOYED_RELEASE ?= ${DEPLOYED_NS}
 
 .phony: add-helm-incubator-repository
 add-helm-incubator-repository:
-	helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com
+ifneq (https://charts.helm.sh/incubator, $(shell helm repo list -o json | jq -e -r '.[] | select(.name=="incubator") | .url'))
+	helm repo add --force-update incubator https://charts.helm.sh/incubator && helm repo update
+endif
 
 .phony: update-nifi-dependency
 update-nifi-dependency: add-helm-incubator-repository
-	cd nifi && helm dep up
+	cd nifi && helm dep up --skip-refresh
 
 .phony: deploy-nifi
 deploy-nifi: update-nifi-dependency

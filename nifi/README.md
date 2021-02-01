@@ -21,7 +21,7 @@ We will add incubator charts' repository and then install nifi chart.
 ```bash
 $ cd nifi-builder/helm-charts/nifi
 # Add helm charts incubator repo
-$ helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com
+$ helm repo add incubator https://charts.helm.sh/incubator
 $ helm repo update
 # Update charts dependencies
 $ helm dep up
