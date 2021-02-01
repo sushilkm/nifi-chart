@@ -12,7 +12,7 @@ icon: https://svn.apache.org/repos/asf/nifi/site/trunk/images/niFi-logo-horizont
 dependencies:
   - name: zookeeper
     version: 2.1.4
-    repository: https://kubernetes-charts-incubator.storage.googleapis.com/
+    repository: https://charts.helm.sh/incubator
     condition: zookeeper.enabled
   - name: ca
     version: 0.1.0
