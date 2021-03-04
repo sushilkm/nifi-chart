@@ -21,7 +21,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-ssl-secret: "{{ .Release.Namespace }}/{{ template "nifi.fullname" . }}-proxy-authentication-tls-secret"
     # Set X-ProxiedEntitiesChain
     nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header X-ProxiedEntitiesChain $ssl_client_s_dn;
+      proxy_set_header X-ProxiedEntitiesChain <$ssl_client_s_dn>;
 {{- end }}
 {{- end }}
 {{- if or .Values.nifi.properties.secured (and .Values.ingress.enabled (and .Values.ingress.tlsOnAnonymousNifi .Values.ingress.authenticateIngressOnAnonymousNifi)) }}
