@@ -634,10 +634,8 @@ spec:
           - name: "ldap-certs"
             mountPath: /opt/ldap-certs
 {{- end }}
-{{- if .Values.nifi.properties.secured }}
           - name: "config-data"
             mountPath: /opt/nifi/nifi-current/config-data
-{{- end }}
           - name: "data1"
             mountPath: /data/partition1
           - name: "data2"
@@ -741,7 +739,6 @@ spec:
             - key: "login-identity-providers.xml"
               path: "login-identity-providers.temp"
   volumeClaimTemplates:
-{{- if .Values.nifi.properties.secured }}
     - metadata:
         name: "config-data"
       spec:
@@ -750,7 +747,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.persistence.configPartitionSize }}
-{{- end }}
     - metadata:
         name: data1
       spec:
