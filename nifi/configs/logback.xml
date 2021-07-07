@@ -35,9 +35,20 @@
             <totalSizeCap>6GB</totalSizeCap>
         </rollingPolicy>
         <immediateFlush>true</immediateFlush>
+{{if .Values.nifi.logging.structured}}
+        <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+            <appendLineSeparator>true</appendLineSeparator>
+            <timestampFormat>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampFormat>
+            <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
+            <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+                <prettyPrint>false</prettyPrint>
+            </jsonFormatter>
+        </layout>
+{{else}}
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <pattern>%date %level [%thread] %logger{40} %msg%n</pattern>
         </encoder>
+{{end}}
     </appender>
 
     <appender name="USER_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -55,9 +66,20 @@
             <maxHistory>30</maxHistory>
             <totalSizeCap>6GB</totalSizeCap>
         </rollingPolicy>
+{{if .Values.nifi.logging.structured}}
+        <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+            <appendLineSeparator>true</appendLineSeparator>
+            <timestampFormat>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampFormat>
+            <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
+            <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+                <prettyPrint>false</prettyPrint>
+            </jsonFormatter>
+        </layout>
+{{else}}
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <pattern>%date %level [%thread] %logger{40} %msg%n</pattern>
         </encoder>
+{{end}}
     </appender>
 
     <appender name="BOOTSTRAP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -75,15 +97,37 @@
             <maxHistory>5</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
+{{if .Values.nifi.logging.structured}}
+        <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+            <appendLineSeparator>true</appendLineSeparator>
+            <timestampFormat>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampFormat>
+            <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
+            <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+                <prettyPrint>false</prettyPrint>
+            </jsonFormatter>
+        </layout>
+{{else}}
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <pattern>%date %level [%thread] %logger{40} %msg%n</pattern>
         </encoder>
+{{end}}
     </appender>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+{{if .Values.nifi.logging.structured}}
+        <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+            <appendLineSeparator>true</appendLineSeparator>
+            <timestampFormat>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampFormat>
+            <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
+            <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+                <prettyPrint>false</prettyPrint>
+            </jsonFormatter>
+        </layout>
+{{else}}
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <pattern>%date %level [%thread] %logger{40} %msg%n</pattern>
         </encoder>
+{{end}}
     </appender>
 
     <!-- valid logging levels: TRACE, DEBUG, INFO, WARN, ERROR -->
