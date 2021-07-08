@@ -323,6 +323,25 @@ spec:
             ./call_nifi_toolkit.sh nifi update-policy -por "/proxy" -poa write -uil "$proxy_user_id"
           }
 
+{{- if .Values.nifi.logging.structured }}
+          pushd lib
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/logback-classic/1.2.3/logback-classic-1.2.3.jar
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/logback-core/1.2.3/logback-core-1.2.3.jar
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/contrib/logback-json-core/0.1.5/logback-json-core-0.1.5.jar
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/contrib/logback-jackson/0.1.5/logback-jackson-0.1.5.jar
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/contrib/logback-json-classic/0.1.5/logback-json-classic-0.1.5.jar
+          curl -OL https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.9.5/jackson-databind-2.9.5.jar
+          curl -OL https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.9.0/jackson-annotations-2.9.0.jar
+          curl -OL https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.9.5/jackson-core-2.9.5.jar
+          popd
+
+          pushd lib/bootstrap
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/contrib/logback-json-core/0.1.5/logback-json-core-0.1.5.jar
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/contrib/logback-jackson/0.1.5/logback-jackson-0.1.5.jar
+          curl -OL https://repo1.maven.org/maven2/ch/qos/logback/contrib/logback-json-classic/0.1.5/logback-json-classic-0.1.5.jar
+          popd
+{{- end }}
+
           # Setup NIFI_RESTART if authorizations.xml exists, because this file will not exist first time.
           if [ -f "${NIFI_HOME}/config-data/conf/authorizations.xml" ]; then
             export NIFI_RESTART=1

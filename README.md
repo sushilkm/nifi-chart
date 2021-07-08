@@ -12,7 +12,7 @@ Following is a list of make targets to interact with the charts in directory.
 - `make add-helm-incubator-repository` - Add helm incubator chart repository (we are using zookeeper chart published in incubator repository for nifi chart).
 - `make update-nifi-dependency` -  Update the chart dependencies for nifi chart.
 - `make deploy-nifi` - Deploy nifi chart on kubernetes to bring up a NiFi cluster.
-- `make delete-release` - Delete the deployed release of nifi chart.
+- `make delete-nifi-release` - Delete the deployed release of nifi chart.
 - `make deploy-secured-nifi-with-toolkit` - Deploy nifi chart on kubernetes to bring up a secured NiFi cluster using certificates generated via nifi-toolkit.
 - `make deploy-secured-nifi-with-openid-authentication-with-toolkit` - Deploy nifi chart on kubernetes to bring up a secured NiFi cluster authenticating via OpenId using certificates generated via nifi-toolkit.
 - `make deploy-secured-nifi-with-ldap-authentication-with-toolkit` - Deploy nifi chart on kubernetes to bring up a secured NiFi cluster authenticating via LDAP using certificates generated via nifi-toolkit.

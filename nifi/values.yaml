@@ -182,6 +182,8 @@ nifi:
       # - "user1"
       # - "CN=user2"
       # - "user3@def.com"
+  logging:
+    structured: false
 
 # pvc details
 persistence:

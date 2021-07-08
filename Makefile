@@ -6,6 +6,7 @@ NAMESPACE_NAME ?= $(shell whoami)-${IDENTIFIER}
 NIFI_CHART_DIR ?= nifi
 DEPLOYED_NS ?= ""
 DEPLOYED_RELEASE ?= ${DEPLOYED_NS}
+STRUCTURED_LOG ?= false
 
 
 .phony: add-helm-incubator-repository
@@ -21,7 +22,10 @@ update-nifi-dependency: add-helm-incubator-repository
 .phony: deploy-nifi
 deploy-nifi: update-nifi-dependency
 	kubectl get namespace ${NAMESPACE_NAME} > /dev/null 2>&1  || kubectl create namespace ${NAMESPACE_NAME}
-	helm install ${RELEASE_NAME} ${NIFI_CHART_DIR} -n ${NAMESPACE_NAME}
+	helm install ${RELEASE_NAME} \
+		${NIFI_CHART_DIR} \
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-toolkit
 deploy-secured-nifi-with-toolkit: update-nifi-dependency
@@ -29,7 +33,8 @@ deploy-secured-nifi-with-toolkit: update-nifi-dependency
 	helm install ${RELEASE_NAME} \
 		-f ${NIFI_CHART_DIR}/secured-values-with-nifi-toolkit.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: delete-nifi-release
 delete-nifi-release:
@@ -42,7 +47,8 @@ deploy-secured-nifi-with-openid-authentication-with-toolkit: update-nifi-depende
 		-f ${NIFI_CHART_DIR}/openid-values.yaml \
 		-f ${NIFI_CHART_DIR}/secured-values-with-nifi-toolkit.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-ldap-authentication-with-toolkit
 deploy-secured-nifi-with-ldap-authentication-with-toolkit: update-nifi-dependency
@@ -51,7 +57,8 @@ deploy-secured-nifi-with-ldap-authentication-with-toolkit: update-nifi-dependenc
 		-f ${NIFI_CHART_DIR}/ldap-values.yaml \
 		-f ${NIFI_CHART_DIR}/secured-values-with-nifi-toolkit.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-user-certs
 deploy-secured-nifi-with-user-certs: update-nifi-dependency
@@ -59,7 +66,8 @@ deploy-secured-nifi-with-user-certs: update-nifi-dependency
 	helm install ${RELEASE_NAME} \
 		-f ${NIFI_CHART_DIR}/secured-values-with-user-provided-certs.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: update-secret-with-more-certs
 update-secret-with-more-certs:
@@ -76,7 +84,8 @@ deploy-secured-nifi-with-openid-authentication-with-user-certs: update-nifi-depe
 		-f ${NIFI_CHART_DIR}/secured-values-with-user-provided-certs.yaml \
 		-f ${NIFI_CHART_DIR}/openid-values.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-ldap-authentication-with-user-certs
 deploy-secured-nifi-with-ldap-authentication-with-user-certs: update-nifi-dependency
@@ -85,7 +94,8 @@ deploy-secured-nifi-with-ldap-authentication-with-user-certs: update-nifi-depend
 		-f ${NIFI_CHART_DIR}/secured-values-with-user-provided-certs.yaml \
 		-f ${NIFI_CHART_DIR}/ldap-values.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 # Minikube related targets
 .phony: deploy-nifi-on-minikube
@@ -94,7 +104,8 @@ deploy-nifi-on-minikube: update-nifi-dependency
 	helm install ${RELEASE_NAME} \
 		-f ${NIFI_CHART_DIR}/minikube-values.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-toolkit-on-minikube
 deploy-secured-nifi-with-toolkit-on-minikube: update-nifi-dependency
@@ -103,7 +114,8 @@ deploy-secured-nifi-with-toolkit-on-minikube: update-nifi-dependency
 		-f ${NIFI_CHART_DIR}/minikube-values.yaml \
 		-f ${NIFI_CHART_DIR}/secured-values-with-nifi-toolkit.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-openid-authentication-with-toolkit-on-minikube
 deploy-secured-nifi-with-openid-authentication-with-toolkit-on-minikube: update-nifi-dependency
@@ -113,7 +125,8 @@ deploy-secured-nifi-with-openid-authentication-with-toolkit-on-minikube: update-
 		-f ${NIFI_CHART_DIR}/openid-values.yaml \
 		-f ${NIFI_CHART_DIR}/secured-values-with-nifi-toolkit.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-ldap-authentication-with-toolkit-on-minikube
 deploy-secured-nifi-with-ldap-authentication-with-toolkit-on-minikube: update-nifi-dependency
@@ -122,7 +135,8 @@ deploy-secured-nifi-with-ldap-authentication-with-toolkit-on-minikube: update-ni
 		-f ${NIFI_CHART_DIR}/minikube-values.yaml \
 		-f ${NIFI_CHART_DIR}/secured-values-with-nifi-toolkit.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-user-certs-on-minikube
 deploy-secured-nifi-with-user-certs-on-minikube: update-nifi-dependency
@@ -131,7 +145,8 @@ deploy-secured-nifi-with-user-certs-on-minikube: update-nifi-dependency
 		-f ${NIFI_CHART_DIR}/minikube-values.yaml \
 		-f ${NIFI_CHART_DIR}/secured-values-with-user-provided-certs.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-openid-authentication-with-user-certs-on-minikube
 deploy-secured-nifi-with-openid-authentication-with-user-certs-on-minikube: update-nifi-dependency
@@ -141,7 +156,8 @@ deploy-secured-nifi-with-openid-authentication-with-user-certs-on-minikube: upda
 		-f ${NIFI_CHART_DIR}/secured-values-with-user-provided-certs.yaml \
 		-f ${NIFI_CHART_DIR}/openid-values.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
 
 .phony: deploy-secured-nifi-with-ldap-authentication-with-user-certs-on-minikube
 deploy-secured-nifi-with-ldap-authentication-with-user-certs-on-minikube: update-nifi-dependency
@@ -151,4 +167,5 @@ deploy-secured-nifi-with-ldap-authentication-with-user-certs-on-minikube: update
 		-f ${NIFI_CHART_DIR}/secured-values-with-user-provided-certs.yaml \
 		-f ${NIFI_CHART_DIR}/ldap-values.yaml \
 		${NIFI_CHART_DIR} \
-		-n ${NAMESPACE_NAME}
+		-n ${NAMESPACE_NAME} \
+		--set nifi.logging.structured=${STRUCTURED_LOG}
