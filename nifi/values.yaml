@@ -7,6 +7,14 @@ image:
   pullPolicy: IfNotPresent
   imagePullSecret: ""
 
+# image registry credentials
+# imageCredentials:
+# - name: quay_pullsecret
+#   registry: quay.io
+#   username: someone
+#   password: password
+#   email: someone@host.com
+
 # security context as per user in nifi image
 # This sets up the os-user security context to run the docker container
 securityContext:
